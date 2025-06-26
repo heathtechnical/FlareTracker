@@ -5,7 +5,7 @@ import { Save, Plus, Minus, AlertCircle, Moon, CloudRain, Utensils, Droplets, Ca
 import { useApp } from '../context/AppContext';
 import SeverityScale from '../components/SeverityScale';
 import CalendarComponent from '../components/Calendar';
-import AICheckInAssistant from '../components/AICheckInAssistant';
+import ChatGPTAssistant from '../components/ChatGPTAssistant';
 import { CheckIn, ConditionEntry, MedicationEntry, SeverityLevel } from '../types';
 
 const CheckInPage: React.FC = () => {
@@ -361,10 +361,10 @@ const CheckInPage: React.FC = () => {
             {/* AI Assistant Button */}
             <button
               onClick={() => setShowAIAssistant(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               <Bot size={18} />
-              <span>AI Assistant</span>
+              <span>ChatGPT Assistant</span>
             </button>
             
             {/* Date selector */}
@@ -763,9 +763,9 @@ const CheckInPage: React.FC = () => {
         ))}
       </div>
 
-      {/* AI Assistant Modal */}
+      {/* ChatGPT Assistant Modal */}
       {showAIAssistant && (
-        <AICheckInAssistant
+        <ChatGPTAssistant
           formData={formData}
           onUpdateFormData={handleAIFormUpdate}
           onClose={() => setShowAIAssistant(false)}
