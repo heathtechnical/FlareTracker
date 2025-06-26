@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader, X, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, Loader, X, AlertCircle, RefreshCw } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SeverityLevel } from '../types';
 import { openaiService, ChatMessage } from '../services/openaiService';
 
 interface Message {
   id: string;
-  type: 'user' | 'ai';
+  type: 'user' | 'ai' | 'system';
   content: string;
   timestamp: Date;
 }
@@ -31,6 +31,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
   const [currentConditionIndex, setCurrentConditionIndex] = useState(0);
   const [currentLifestyleFactor, setCurrentLifestyleFactor] = useState<'stress' | 'sleep' | 'water' | 'diet' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -42,50 +43,10 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
   }, [messages]);
 
   useEffect(() => {
-    // Check if OpenAI API key is configured
-    if (!import.meta.env.VITE_OPENAI_API_KEY) {
-      setError('OpenAI API key not configured. Please add VITE_OPENAI_API_KEY to your environment variables.');
-      return;
-    }
-
-    // Start the conversation
     initializeConversation();
   }, []);
 
-  const initializeConversation = async () => {
-    if (!user) return;
-
-    setIsLoading(true);
-    try {
-      const context = {
-        userName: user.name,
-        conditions: user.conditions,
-        medications: user.medications,
-        currentFormData: formData
-      };
-
-      const initialMessage = await openaiService.sendMessage(
-        [{
-          role: 'user',
-          content: 'Hi! I\'m ready to do my daily skin check-in. Can you help me?'
-        }],
-        context
-      );
-
-      addAIMessage(initialMessage);
-      setChatHistory([{
-        role: 'user',
-        content: 'Hi! I\'m ready to do my daily skin check-in. Can you help me?'
-      }]);
-    } catch (error) {
-      console.error('Failed to initialize conversation:', error);
-      setError('Failed to start conversation. Please check your internet connection and try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const addMessage = (type: 'user' | 'ai', content: string) => {
+  const addMessage = (type: 'user' | 'ai' | 'system', content: string) => {
     const newMessage: Message = {
       id: Date.now().toString(),
       type,
@@ -101,6 +62,118 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
 
   const addUserMessage = (content: string) => {
     addMessage('user', content);
+  };
+
+  const addSystemMessage = (content: string) => {
+    addMessage('system', content);
+  };
+
+  const checkOpenAIConnection = async (): Promise<boolean> => {
+    try {
+      // Check if API key is configured
+      if (!import.meta.env.VITE_OPENAI_API_KEY) {
+        throw new Error('OpenAI API key not configured');
+      }
+
+      if (import.meta.env.VITE_OPENAI_API_KEY === 'your_openai_api_key') {
+        throw new Error('OpenAI API key is not set to a real value');
+      }
+
+      // Test the connection with a simple request
+      const testContext = {
+        userName: user?.name || 'User',
+        conditions: user?.conditions || [],
+        medications: user?.medications || [],
+        currentFormData: formData
+      };
+
+      await openaiService.sendMessage([{
+        role: 'user',
+        content: 'Test connection'
+      }], testContext);
+
+      return true;
+    } catch (error: any) {
+      console.error('OpenAI connection test failed:', error);
+      
+      if (error.message?.includes('API key')) {
+        setError('OpenAI API key is missing or invalid. Please check your configuration.');
+      } else if (error.message?.includes('quota') || error.message?.includes('billing')) {
+        setError('OpenAI API quota exceeded or billing issue. Please check your OpenAI account.');
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        setError('Network connection error. Please check your internet connection.');
+      } else {
+        setError(`OpenAI API error: ${error.message || 'Unknown error'}`);
+      }
+      
+      return false;
+    }
+  };
+
+  const initializeConversation = async () => {
+    if (!user) {
+      setError('User data not available');
+      setConnectionStatus('error');
+      return;
+    }
+
+    setIsLoading(true);
+    setConnectionStatus('connecting');
+    addSystemMessage('🔗 Connecting to ChatGPT...');
+
+    try {
+      // Test OpenAI connection first
+      const isConnected = await checkOpenAIConnection();
+      
+      if (!isConnected) {
+        setConnectionStatus('error');
+        addSystemMessage('❌ Failed to connect to ChatGPT');
+        return;
+      }
+
+      setConnectionStatus('connected');
+      addSystemMessage('✅ Connected to ChatGPT successfully!');
+
+      const context = {
+        userName: user.name,
+        conditions: user.conditions,
+        medications: user.medications,
+        currentFormData: formData
+      };
+
+      const initialMessage = await openaiService.sendMessage(
+        [{
+          role: 'user',
+          content: 'Hi! I\'m ready to do my daily skin check-in. Can you help me get started?'
+        }],
+        context
+      );
+
+      addAIMessage(initialMessage);
+      
+      // Add the first question after a short delay
+      setTimeout(() => {
+        if (user.conditions.length > 0) {
+          addAIMessage(`Perfect! Let's start with your ${user.conditions[0].name}. How is it feeling today? You can describe it in your own words or rate it from 1-5 (1 = minimal, 5 = extreme).`);
+          setCurrentStep('conditions');
+        } else {
+          addAIMessage("I notice you don't have any conditions set up yet. You'll need to add some conditions first before we can continue with the check-in.");
+        }
+      }, 1500);
+
+      setChatHistory([{
+        role: 'user',
+        content: 'Hi! I\'m ready to do my daily skin check-in. Can you help me get started?'
+      }]);
+
+    } catch (error: any) {
+      console.error('Failed to initialize conversation:', error);
+      setConnectionStatus('error');
+      setError(`Failed to start conversation: ${error.message || 'Unknown error'}`);
+      addSystemMessage('❌ Failed to initialize conversation');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const parseUserResponseLocal = (input: string): { 
@@ -254,9 +327,6 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     if (!user) return "I need user information to continue.";
 
     switch (currentStep) {
-      case 'greeting':
-        return "I'm ready to help you with your daily check-in! Let's start by talking about your skin conditions. Are you ready to begin?";
-      
       case 'conditions':
         const currentCondition = user.conditions[currentConditionIndex];
         if (currentCondition) {
@@ -294,13 +364,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
   };
 
   const handleStepProgression = (parsed: any) => {
-    if (currentStep === 'greeting') {
-      const lowerInput = inputValue.toLowerCase();
-      if (lowerInput.includes('yes') || lowerInput.includes('ready') || lowerInput.includes('sure') || lowerInput.includes('start')) {
-        setCurrentStep('conditions');
-        setCurrentConditionIndex(0);
-      }
-    } else if (currentStep === 'conditions' && parsed.severity) {
+    if (currentStep === 'conditions' && parsed.severity) {
       if (currentConditionIndex < user!.conditions.length - 1) {
         setCurrentConditionIndex(currentConditionIndex + 1);
       } else {
@@ -315,7 +379,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
   };
 
   const handleUserInput = async () => {
-    if (!inputValue.trim() || isLoading || error) return;
+    if (!inputValue.trim() || isLoading || connectionStatus !== 'connected') return;
 
     const userInput = inputValue.trim();
     addUserMessage(userInput);
@@ -362,7 +426,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
       // Get AI response
       const aiResponse = await openaiService.sendMessage(newChatHistory, context);
       
-      // If the AI response contains multiple questions, extract just the acknowledgment
+      // Clean the response to remove multiple questions
       const responseLines = aiResponse.split('\n').filter(line => line.trim());
       let cleanResponse = aiResponse;
       
@@ -391,10 +455,10 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
         { role: 'assistant', content: aiResponse }
       ]);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in conversation:', error);
-      setError('Sorry, I encountered an error. Please try again.');
-      addAIMessage('I apologize, but I\'m having trouble right now. Please try again or continue with the manual form.');
+      setError(`ChatGPT error: ${error.message || 'Unknown error'}`);
+      addSystemMessage(`❌ Error: ${error.message || 'Failed to get response from ChatGPT'}`);
     } finally {
       setIsLoading(false);
     }
@@ -414,15 +478,17 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     setCurrentStep('greeting');
     setCurrentConditionIndex(0);
     setCurrentLifestyleFactor(null);
+    setConnectionStatus('connecting');
     initializeConversation();
   };
 
-  if (error && messages.length === 0) {
+  // Show error screen if connection failed
+  if (connectionStatus === 'error') {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium text-gray-800">AI Assistant Error</h3>
+            <h3 className="font-medium text-gray-800">ChatGPT Connection Failed</h3>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -434,15 +500,21 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
           <div className="flex items-start space-x-3 mb-6">
             <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
             <div>
-              <p className="text-gray-700 mb-2">{error}</p>
+              <p className="text-gray-700 mb-2">{error || 'Failed to connect to ChatGPT'}</p>
               {!import.meta.env.VITE_OPENAI_API_KEY && (
                 <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-                  <p className="font-medium mb-1">To enable AI assistance:</p>
+                  <p className="font-medium mb-1">To enable ChatGPT assistance:</p>
                   <ol className="list-decimal list-inside space-y-1">
                     <li>Get an API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">OpenAI</a></li>
                     <li>Add it to your .env file as VITE_OPENAI_API_KEY</li>
                     <li>Restart the development server</li>
                   </ol>
+                </div>
+              )}
+              {import.meta.env.VITE_OPENAI_API_KEY === 'your_openai_api_key' && (
+                <div className="text-sm text-gray-600 bg-yellow-50 p-3 rounded-lg">
+                  <p className="font-medium mb-1">API Key Not Configured:</p>
+                  <p>Please replace 'your_openai_api_key' in your .env file with a real OpenAI API key.</p>
                 </div>
               )}
             </div>
@@ -451,9 +523,10 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
           <div className="flex space-x-3">
             <button
               onClick={retryConnection}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
             >
-              Retry
+              <RefreshCw size={16} className="mr-2" />
+              Retry Connection
             </button>
             <button
               onClick={onClose}
@@ -473,12 +546,19 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white mr-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white mr-3 ${
+              connectionStatus === 'connected' ? 'bg-green-500' : 
+              connectionStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
+            }`}>
               <Bot size={18} />
             </div>
             <div>
               <h3 className="font-medium text-gray-800">ChatGPT Assistant</h3>
-              <p className="text-sm text-gray-500">Powered by OpenAI • Let me help with your check-in</p>
+              <p className="text-sm text-gray-500">
+                {connectionStatus === 'connected' && 'Connected • Powered by OpenAI'}
+                {connectionStatus === 'connecting' && 'Connecting to ChatGPT...'}
+                {connectionStatus === 'error' && 'Connection Failed'}
+              </p>
             </div>
           </div>
           <button
@@ -494,27 +574,36 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${
+                message.type === 'user' ? 'justify-end' : 
+                message.type === 'system' ? 'justify-center' : 'justify-start'
+              }`}
             >
-              <div className={`flex items-start max-w-[80%] ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${
-                  message.type === 'user' ? 'bg-blue-600 ml-2' : 'bg-green-500 mr-2'
-                }`}>
-                  {message.type === 'user' ? <User size={16} /> : <Bot size={16} />}
+              {message.type === 'system' ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 max-w-md">
+                  <p className="text-sm text-blue-700 text-center">{message.content}</p>
                 </div>
-                <div className={`rounded-lg px-4 py-2 ${
-                  message.type === 'user' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  <p className={`text-xs mt-1 ${
-                    message.type === 'user' ? 'text-blue-200' : 'text-gray-500'
+              ) : (
+                <div className={`flex items-start max-w-[80%] ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${
+                    message.type === 'user' ? 'bg-blue-600 ml-2' : 'bg-green-500 mr-2'
                   }`}>
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                    {message.type === 'user' ? <User size={16} /> : <Bot size={16} />}
+                  </div>
+                  <div className={`rounded-lg px-4 py-2 ${
+                    message.type === 'user' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <p className={`text-xs mt-1 ${
+                      message.type === 'user' ? 'text-blue-200' : 'text-gray-500'
+                    }`}>
+                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ))}
           
@@ -556,21 +645,35 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Type your response..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              disabled={isLoading || !!error}
+              placeholder={
+                connectionStatus === 'connected' ? "Type your response..." : 
+                connectionStatus === 'connecting' ? "Connecting..." : "Connection failed"
+              }
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+              disabled={isLoading || connectionStatus !== 'connected'}
             />
             <button
               onClick={handleUserInput}
-              disabled={!inputValue.trim() || isLoading || !!error}
+              disabled={!inputValue.trim() || isLoading || connectionStatus !== 'connected'}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Send size={18} />
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Press Enter to send • ChatGPT will help you fill out your check-in form naturally
-          </p>
+          <div className="flex justify-between items-center mt-2">
+            <p className="text-xs text-gray-500">
+              Press Enter to send • ChatGPT will help you fill out your check-in form
+            </p>
+            {connectionStatus === 'connected' && (
+              <button
+                onClick={retryConnection}
+                className="text-xs text-gray-500 hover:text-gray-700 flex items-center"
+              >
+                <RefreshCw size={12} className="mr-1" />
+                Reset
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

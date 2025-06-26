@@ -1,10 +1,21 @@
 import OpenAI from 'openai';
 
+// Check if API key is configured
+const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+if (!apiKey) {
+  console.warn('OpenAI API key not found. Please set VITE_OPENAI_API_KEY in your environment variables.');
+}
+
+if (apiKey === 'your_openai_api_key') {
+  console.warn('OpenAI API key is set to placeholder value. Please update with a real API key.');
+}
+
 // Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+const openai = apiKey && apiKey !== 'your_openai_api_key' ? new OpenAI({
+  apiKey: apiKey,
   dangerouslyAllowBrowser: true // Note: In production, you'd want to use a backend proxy
-});
+}) : null;
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -81,35 +92,79 @@ Examples of good responses:
     messages: ChatMessage[],
     context: CheckInContext
   ): Promise<string> {
+    // Check if OpenAI is properly configured
+    if (!openai) {
+      if (!apiKey) {
+        throw new Error('OpenAI API key not configured. Please set VITE_OPENAI_API_KEY in your environment variables.');
+      }
+      if (apiKey === 'your_openai_api_key') {
+        throw new Error('OpenAI API key is set to placeholder value. Please update with a real API key.');
+      }
+      throw new Error('OpenAI client not initialized properly.');
+    }
+
     try {
       const systemMessage: ChatMessage = {
         role: 'system',
         content: this.createSystemPrompt(context)
       };
 
+      console.log('Sending request to OpenAI...', {
+        messageCount: messages.length,
+        hasSystemPrompt: true
+      });
+
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [systemMessage, ...messages],
-        max_tokens: 150, // Reduced to encourage shorter responses
+        max_tokens: 150,
         temperature: 0.7,
         presence_penalty: 0.1,
         frequency_penalty: 0.1
       });
 
-      return response.choices[0]?.message?.content || 'I apologize, but I had trouble processing that. Could you please try again?';
-    } catch (error) {
+      console.log('OpenAI response received:', {
+        choices: response.choices.length,
+        usage: response.usage
+      });
+
+      const content = response.choices[0]?.message?.content;
+      
+      if (!content) {
+        throw new Error('No response content received from OpenAI');
+      }
+
+      return content;
+    } catch (error: any) {
       console.error('OpenAI API error:', error);
       
-      if (error instanceof Error) {
-        if (error.message.includes('API key')) {
-          return 'I need an OpenAI API key to function properly. Please check your configuration.';
-        }
-        if (error.message.includes('quota')) {
-          return 'I\'m temporarily unavailable due to API limits. Please try again later.';
-        }
+      // Handle specific OpenAI errors
+      if (error.code === 'invalid_api_key') {
+        throw new Error('Invalid OpenAI API key. Please check your API key configuration.');
       }
       
-      return 'I\'m having trouble connecting right now. Please try again in a moment.';
+      if (error.code === 'insufficient_quota') {
+        throw new Error('OpenAI API quota exceeded. Please check your billing and usage limits.');
+      }
+      
+      if (error.code === 'rate_limit_exceeded') {
+        throw new Error('OpenAI API rate limit exceeded. Please try again in a moment.');
+      }
+      
+      if (error.code === 'model_not_found') {
+        throw new Error('OpenAI model not found. The requested model may not be available.');
+      }
+      
+      if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        throw new Error('Network error connecting to OpenAI. Please check your internet connection.');
+      }
+      
+      if (error.message?.includes('API key')) {
+        throw new Error('OpenAI API key error. Please verify your API key is correct and active.');
+      }
+      
+      // Generic error handling
+      throw new Error(`OpenAI API error: ${error.message || 'Unknown error occurred'}`);
     }
   }
 
@@ -124,6 +179,11 @@ Examples of good responses:
     lifestyleFactor?: { type: string; value: number };
     needsMoreInfo?: boolean;
   }> {
+    if (!openai) {
+      // Fall back to local parsing if OpenAI is not available
+      return this.fallbackParsing(userInput);
+    }
+
     try {
       const parsePrompt = `Parse this user response for skin health check-in data. Current topic: ${currentTopic}
 
@@ -229,6 +289,32 @@ Example: {"severity": 3, "symptoms": ["itchiness", "redness"], "medicationTaken"
     }
 
     return result;
+  }
+
+  // Test connection method
+  async testConnection(): Promise<boolean> {
+    if (!openai) {
+      return false;
+    }
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'user',
+            content: 'Test connection - please respond with "OK"'
+          }
+        ],
+        max_tokens: 10,
+        temperature: 0
+      });
+
+      return !!response.choices[0]?.message?.content;
+    } catch (error) {
+      console.error('OpenAI connection test failed:', error);
+      return false;
+    }
   }
 }
 
