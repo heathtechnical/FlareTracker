@@ -58,7 +58,7 @@ export default function ChatGPTAssistant({
       }
       
       // Check if it's the placeholder key
-      if (apiKey === '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') {
+      if (apiKey === 'PLACEHOLDER') {
         throw new Error('OpenAI API key is set to placeholder value');
       }
       
