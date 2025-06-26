@@ -185,6 +185,17 @@ const CheckInPage: React.FC = () => {
     
     navigate('/dashboard');
   };
+
+  const handleAIFormUpdate = (updates: any) => {
+    setFormData(prev => ({
+      ...prev,
+      ...updates
+    }));
+  };
+
+  const handleAISaveCheckIn = () => {
+    handleSubmit(new Event('submit') as any);
+  };
   
   const updateConditionSeverity = (conditionId: string, severity: SeverityLevel) => {
     setFormData(prev => ({
@@ -275,13 +286,6 @@ const CheckInPage: React.FC = () => {
       }
     }));
   };
-
-  const handleAIFormUpdate = (updates: any) => {
-    setFormData(prev => ({
-      ...prev,
-      ...updates
-    }));
-  };
   
   // Common symptom options
   const commonSymptoms = [
@@ -364,7 +368,7 @@ const CheckInPage: React.FC = () => {
               className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               <Bot size={18} />
-              <span>ChatGPT Assistant</span>
+              <span>AI Assistant</span>
             </button>
             
             {/* Date selector */}
@@ -768,6 +772,7 @@ const CheckInPage: React.FC = () => {
         <ChatGPTAssistant
           formData={formData}
           onUpdateFormData={handleAIFormUpdate}
+          onSaveCheckIn={handleAISaveCheckIn}
           onClose={() => setShowAIAssistant(false)}
         />
       )}
