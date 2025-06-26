@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Save, Plus, Minus, AlertCircle, Moon, CloudRain, Utensils, Droplets, Calendar, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
+import { Save, Plus, Minus, AlertCircle, Moon, CloudRain, Utensils, Droplets, Calendar, ChevronLeft, ChevronRight, CheckCircle, Bot } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import SeverityScale from '../components/SeverityScale';
 import CalendarComponent from '../components/Calendar';
+import AICheckInAssistant from '../components/AICheckInAssistant';
 import { CheckIn, ConditionEntry, MedicationEntry, SeverityLevel } from '../types';
 
 const CheckInPage: React.FC = () => {
@@ -15,6 +16,7 @@ const CheckInPage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -273,6 +275,13 @@ const CheckInPage: React.FC = () => {
       }
     }));
   };
+
+  const handleAIFormUpdate = (updates: any) => {
+    setFormData(prev => ({
+      ...prev,
+      ...updates
+    }));
+  };
   
   // Common symptom options
   const commonSymptoms = [
@@ -348,29 +357,40 @@ const CheckInPage: React.FC = () => {
             {isEditing ? "Edit Check-in" : "Daily Check-in"}
           </h1>
           
-          {/* Date selector */}
-          <div className="relative" ref={calendarRef}>
+          <div className="flex items-center space-x-3">
+            {/* AI Assistant Button */}
             <button
-              type="button"
-              onClick={() => setShowCalendar(!showCalendar)}
-              className="flex items-center space-x-2 px-4 py-2 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 text-gray-700 hover:text-gray-900"
+              onClick={() => setShowAIAssistant(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              <Calendar size={16} className="text-gray-500" />
-              <span className="font-medium">
-                {selectedDate && format(new Date(selectedDate), 'EEEE, MMMM d, yyyy')}
-              </span>
+              <Bot size={18} />
+              <span>AI Assistant</span>
             </button>
             
-            {showCalendar && (
-              <div className="absolute top-full right-0 mt-2 z-20">
-                <CalendarComponent
-                  selectedDate={new Date(selectedDate)}
-                  onDateSelect={handleDateSelect}
-                  onClose={() => setShowCalendar(false)}
-                  maxDate={new Date()}
-                />
-              </div>
-            )}
+            {/* Date selector */}
+            <div className="relative" ref={calendarRef}>
+              <button
+                type="button"
+                onClick={() => setShowCalendar(!showCalendar)}
+                className="flex items-center space-x-2 px-4 py-2 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 text-gray-700 hover:text-gray-900"
+              >
+                <Calendar size={16} className="text-gray-500" />
+                <span className="font-medium">
+                  {selectedDate && format(new Date(selectedDate), 'EEEE, MMMM d, yyyy')}
+                </span>
+              </button>
+              
+              {showCalendar && (
+                <div className="absolute top-full right-0 mt-2 z-20">
+                  <CalendarComponent
+                    selectedDate={new Date(selectedDate)}
+                    onDateSelect={handleDateSelect}
+                    onClose={() => setShowCalendar(false)}
+                    maxDate={new Date()}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -742,6 +762,15 @@ const CheckInPage: React.FC = () => {
           ></div>
         ))}
       </div>
+
+      {/* AI Assistant Modal */}
+      {showAIAssistant && (
+        <AICheckInAssistant
+          formData={formData}
+          onUpdateFormData={handleAIFormUpdate}
+          onClose={() => setShowAIAssistant(false)}
+        />
+      )}
     </div>
   );
 };
