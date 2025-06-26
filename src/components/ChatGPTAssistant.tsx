@@ -27,13 +27,10 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState<'greeting' | 'conditions' | 'medications' | 'lifestyle' | 'complete'>('greeting');
-  const [currentConditionIndex, setCurrentConditionIndex] = useState(0);
-  const [currentLifestyleFactor, setCurrentLifestyleFactor] = useState<'stress' | 'sleep' | 'water' | 'diet' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const [isInitialized, setIsInitialized] = useState(false);
-  const [conversationStarted, setConversationStarted] = useState(false);
+  const [needsMoreInfo, setNeedsMoreInfo] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -65,16 +62,14 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
 
   const checkOpenAIConnection = async (): Promise<boolean> => {
     try {
-      // Check if API key is configured
       if (!import.meta.env.VITE_OPENAI_API_KEY) {
         throw new Error('OpenAI API key not configured');
       }
 
-      if (import.meta.env.VITE_OPENAI_API_KEY === 'your_openai_api_key') {
-        throw new Error('OpenAI API key is not set to a real value');
+      if (import.meta.env.VITE_OPENAI_API_KEY === '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') {
+        throw new Error('OpenAI API key is set to placeholder value');
       }
 
-      // Test the connection with a simple request
       const testContext = {
         userName: user?.name || 'User',
         conditions: user?.conditions || [],
@@ -113,12 +108,9 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     }
 
     setConnectionStatus('connecting');
-    
-    // Single connection message
     addMessage('system', '🔗 Connecting to ChatGPT...');
 
     try {
-      // Test OpenAI connection first
       const isConnected = await checkOpenAIConnection();
       
       if (!isConnected) {
@@ -128,13 +120,16 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
       }
 
       setConnectionStatus('connected');
-      
-      // Single success message
       addMessage('system', '✅ Connected to ChatGPT successfully!');
 
-      // Start conversation immediately without waiting for user
+      // Start with the main question
       setTimeout(() => {
-        startConversation();
+        if (user.conditions.length > 0) {
+          const conditionNames = user.conditions.map(c => c.name).join(', ');
+          addMessage('ai', `Hi! How is your skin today? Please tell me about your ${conditionNames} and anything else you'd like me to know about your skin health today.`);
+        } else {
+          addMessage('ai', "Hi! How is your skin today? Please tell me about any skin conditions you're experiencing and I'll help fill out your check-in.");
+        }
       }, 1000);
 
     } catch (error: any) {
@@ -145,62 +140,85 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     }
   };
 
-  const startConversation = () => {
-    if (conversationStarted) return; // Prevent duplicate starts
-    
-    setConversationStarted(true);
-    
-    // Start with the first question immediately
-    if (user && user.conditions.length > 0) {
-      setCurrentStep('conditions');
-      addMessage('ai', `Hi! I'm here to help you with your daily skin check-in. Let's start with your ${user.conditions[0].name}. How is it feeling today? You can describe it in your own words or rate it from 1-5 (1 = minimal, 5 = extreme).`);
-    } else {
-      addMessage('ai', "Hi! I'm here to help you with your daily skin check-in. I notice you don't have any conditions set up yet. You'll need to add some conditions first before we can continue.");
-    }
-  };
-
-  const parseUserResponseLocal = (input: string): { 
-    severity?: number; 
-    symptoms?: string[]; 
-    medicationTaken?: boolean;
-    lifestyleValue?: number;
-  } => {
+  const parseComprehensiveResponse = (input: string): any => {
     const lowerInput = input.toLowerCase();
-    const result: any = {};
+    const updates: any = {};
 
-    // Parse severity
-    const severityKeywords = {
-      'minimal': 1, 'very mild': 1, 'barely': 1,
-      'mild': 2, 'slight': 2, 'little': 2,
-      'moderate': 3, 'medium': 3, 'okay': 3, 'average': 3,
-      'severe': 4, 'bad': 4, 'painful': 4, 'worse': 4,
-      'extreme': 5, 'terrible': 5, 'unbearable': 5, 'worst': 5
-    };
+    // Parse severity for each condition
+    if (user && user.conditions.length > 0) {
+      const conditionEntries = [...formData.conditionEntries];
+      let foundSeverity = false;
 
-    for (const [keyword, value] of Object.entries(severityKeywords)) {
-      if (lowerInput.includes(keyword)) {
-        result.severity = value;
-        break;
+      user.conditions.forEach((condition, index) => {
+        const conditionName = condition.name.toLowerCase();
+        
+        // Look for condition-specific mentions
+        const conditionMentioned = lowerInput.includes(conditionName) || 
+                                 lowerInput.includes(conditionName.split(' ')[0]) ||
+                                 (user.conditions.length === 1); // If only one condition, assume it's about that
+
+        if (conditionMentioned || !foundSeverity) {
+          // Parse severity
+          let severity: number | undefined;
+          
+          // Severity keywords
+          if (lowerInput.includes('terrible') || lowerInput.includes('awful') || lowerInput.includes('unbearable') || lowerInput.includes('worst')) {
+            severity = 5;
+          } else if (lowerInput.includes('bad') || lowerInput.includes('severe') || lowerInput.includes('painful') || lowerInput.includes('really') && (lowerInput.includes('itchy') || lowerInput.includes('red'))) {
+            severity = 4;
+          } else if (lowerInput.includes('moderate') || lowerInput.includes('okay') || lowerInput.includes('average') || lowerInput.includes('not great') || lowerInput.includes('acting up')) {
+            severity = 3;
+          } else if (lowerInput.includes('mild') || lowerInput.includes('slight') || lowerInput.includes('little') || lowerInput.includes('better') || lowerInput.includes('improving')) {
+            severity = 2;
+          } else if (lowerInput.includes('minimal') || lowerInput.includes('barely') || lowerInput.includes('very mild') || lowerInput.includes('almost gone') || lowerInput.includes('clear')) {
+            severity = 1;
+          }
+
+          // Try to parse numbers
+          const numberMatch = input.match(/\b([1-5])\b/);
+          if (numberMatch && !severity) {
+            severity = parseInt(numberMatch[1]);
+          }
+
+          // Default severity if mentioned but no specific level
+          if (!severity && conditionMentioned) {
+            if (lowerInput.includes('good') || lowerInput.includes('fine') || lowerInput.includes('well')) {
+              severity = 2;
+            } else if (lowerInput.includes('not') && (lowerInput.includes('good') || lowerInput.includes('great'))) {
+              severity = 3;
+            } else {
+              severity = 3; // Default moderate if mentioned without specifics
+            }
+          }
+
+          if (severity) {
+            const entryIndex = conditionEntries.findIndex(e => e.conditionId === condition.id);
+            if (entryIndex >= 0) {
+              conditionEntries[entryIndex] = {
+                ...conditionEntries[entryIndex],
+                severity: severity as SeverityLevel
+              };
+              foundSeverity = true;
+            }
+          }
+        }
+      });
+
+      if (foundSeverity) {
+        updates.conditionEntries = conditionEntries;
       }
-    }
-
-    // Parse numbers
-    const numberMatch = input.match(/\b([1-5])\b/);
-    if (numberMatch && !result.severity) {
-      result.severity = parseInt(numberMatch[1]);
     }
 
     // Parse symptoms
     const symptoms: string[] = [];
     const symptomKeywords = {
-      'itchy': 'Itchiness', 'itch': 'Itchiness', 'scratchy': 'Itchiness',
-      'red': 'Redness', 'inflamed': 'Redness',
-      'dry': 'Dryness',
-      'flaky': 'Flaking', 'peeling': 'Flaking',
-      'painful': 'Pain', 'hurt': 'Pain', 'sore': 'Pain',
-      'swollen': 'Swelling',
-      'burning': 'Burning',
-      'bleeding': 'Bleeding'
+      'itchy': 'Itchiness', 'itch': 'Itchiness', 'scratchy': 'Itchiness', 'scratching': 'Itchiness',
+      'red': 'Redness', 'inflamed': 'Redness', 'inflammation': 'Redness',
+      'dry': 'Dryness', 'flaky': 'Flaking', 'peeling': 'Flaking', 'scaling': 'Flaking',
+      'painful': 'Pain', 'hurt': 'Pain', 'sore': 'Pain', 'ache': 'Pain',
+      'swollen': 'Swelling', 'puffy': 'Swelling',
+      'burning': 'Burning', 'stinging': 'Burning',
+      'bleeding': 'Bleeding', 'blood': 'Bleeding'
     };
 
     Object.entries(symptomKeywords).forEach(([keyword, symptom]) => {
@@ -209,143 +227,135 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
       }
     });
 
-    if (symptoms.length > 0) {
-      result.symptoms = symptoms;
+    // Add symptoms to all conditions that have severity
+    if (symptoms.length > 0 && updates.conditionEntries) {
+      updates.conditionEntries = updates.conditionEntries.map((entry: any) => {
+        if (entry.severity > 0) {
+          return {
+            ...entry,
+            symptoms: [...(entry.symptoms || []), ...symptoms].filter((s, i, arr) => arr.indexOf(s) === i)
+          };
+        }
+        return entry;
+      });
     }
 
     // Parse medication adherence
-    if (lowerInput.includes('yes') || lowerInput.includes('took') || lowerInput.includes('taken')) {
-      result.medicationTaken = true;
-    } else if (lowerInput.includes('no') || lowerInput.includes('forgot') || lowerInput.includes('skipped')) {
-      result.medicationTaken = false;
+    if (lowerInput.includes('took') || lowerInput.includes('applied') || lowerInput.includes('used') || 
+        lowerInput.includes('medication') || lowerInput.includes('cream') || lowerInput.includes('pill')) {
+      
+      if (lowerInput.includes('forgot') || lowerInput.includes('missed') || lowerInput.includes('skipped') || 
+          lowerInput.includes("didn't") || lowerInput.includes("haven't")) {
+        // Medications not taken
+        updates.medicationEntries = formData.medicationEntries.map((entry: any) => ({
+          ...entry,
+          taken: false
+        }));
+      } else {
+        // Medications taken
+        updates.medicationEntries = formData.medicationEntries.map((entry: any) => ({
+          ...entry,
+          taken: true,
+          timesTaken: 1
+        }));
+      }
     }
 
     // Parse lifestyle factors
-    if (currentLifestyleFactor) {
-      if (currentLifestyleFactor === 'stress') {
-        if (lowerInput.includes('very stressed') || lowerInput.includes('extremely stressed')) result.lifestyleValue = 5;
-        else if (lowerInput.includes('stressed') || lowerInput.includes('high stress')) result.lifestyleValue = 4;
-        else if (lowerInput.includes('moderate') || lowerInput.includes('some stress')) result.lifestyleValue = 3;
-        else if (lowerInput.includes('little stress') || lowerInput.includes('low stress')) result.lifestyleValue = 2;
-        else if (lowerInput.includes('no stress') || lowerInput.includes('relaxed') || lowerInput.includes('calm')) result.lifestyleValue = 1;
-      } else if (currentLifestyleFactor === 'sleep') {
-        if (lowerInput.includes('excellent') || lowerInput.includes('great sleep')) result.lifestyleValue = 5;
-        else if (lowerInput.includes('good') || lowerInput.includes('well')) result.lifestyleValue = 4;
-        else if (lowerInput.includes('okay') || lowerInput.includes('average')) result.lifestyleValue = 3;
-        else if (lowerInput.includes('poor') || lowerInput.includes('bad')) result.lifestyleValue = 2;
-        else if (lowerInput.includes('terrible') || lowerInput.includes('awful') || lowerInput.includes('no sleep')) result.lifestyleValue = 1;
-      } else if (currentLifestyleFactor === 'water') {
-        if (lowerInput.includes('lots') || lowerInput.includes('plenty') || lowerInput.includes('well hydrated')) result.lifestyleValue = 5;
-        else if (lowerInput.includes('enough') || lowerInput.includes('good')) result.lifestyleValue = 4;
-        else if (lowerInput.includes('some') || lowerInput.includes('okay')) result.lifestyleValue = 3;
-        else if (lowerInput.includes('little') || lowerInput.includes('not much')) result.lifestyleValue = 2;
-        else if (lowerInput.includes('barely') || lowerInput.includes('dehydrated')) result.lifestyleValue = 1;
-      } else if (currentLifestyleFactor === 'diet') {
-        if (lowerInput.includes('excellent') || lowerInput.includes('very healthy')) result.lifestyleValue = 5;
-        else if (lowerInput.includes('good') || lowerInput.includes('healthy')) result.lifestyleValue = 4;
-        else if (lowerInput.includes('okay') || lowerInput.includes('average')) result.lifestyleValue = 3;
-        else if (lowerInput.includes('poor') || lowerInput.includes('bad')) result.lifestyleValue = 2;
-        else if (lowerInput.includes('terrible') || lowerInput.includes('junk')) result.lifestyleValue = 1;
-      }
+    const lifestyleUpdates: any = {};
 
-      // Try to parse numbers for lifestyle factors
-      if (numberMatch && !result.lifestyleValue) {
-        result.lifestyleValue = parseInt(numberMatch[1]);
+    // Stress
+    if (lowerInput.includes('stress')) {
+      if (lowerInput.includes('very stressed') || lowerInput.includes('extremely stressed')) {
+        lifestyleUpdates.stress = 5;
+      } else if (lowerInput.includes('stressed') || lowerInput.includes('stressful')) {
+        lifestyleUpdates.stress = 4;
+      } else if (lowerInput.includes('some stress') || lowerInput.includes('bit stressed')) {
+        lifestyleUpdates.stress = 3;
+      } else if (lowerInput.includes('little stress') || lowerInput.includes('not stressed')) {
+        lifestyleUpdates.stress = 2;
+      } else if (lowerInput.includes('no stress') || lowerInput.includes('relaxed')) {
+        lifestyleUpdates.stress = 1;
       }
     }
 
-    return result;
-  };
-
-  const updateFormDataFromParsedResponse = (parsed: any) => {
-    const updates: any = {};
-
-    // Update severity for current condition
-    if (parsed.severity && user && currentStep === 'conditions') {
-      const updatedConditionEntries = [...formData.conditionEntries];
-      const currentCondition = user.conditions[currentConditionIndex];
-      
-      if (currentCondition) {
-        const entryIndex = updatedConditionEntries.findIndex(e => e.conditionId === currentCondition.id);
-        
-        if (entryIndex >= 0) {
-          updatedConditionEntries[entryIndex] = {
-            ...updatedConditionEntries[entryIndex],
-            severity: parsed.severity as SeverityLevel,
-            symptoms: [
-              ...updatedConditionEntries[entryIndex].symptoms,
-              ...(parsed.symptoms || [])
-            ].filter((symptom, index, arr) => arr.indexOf(symptom) === index)
-          };
-          updates.conditionEntries = updatedConditionEntries;
-        }
+    // Sleep
+    if (lowerInput.includes('sleep') || lowerInput.includes('slept') || lowerInput.includes('tired')) {
+      if (lowerInput.includes('great sleep') || lowerInput.includes('excellent sleep') || lowerInput.includes('slept well')) {
+        lifestyleUpdates.sleep = 5;
+      } else if (lowerInput.includes('good sleep') || lowerInput.includes('well rested')) {
+        lifestyleUpdates.sleep = 4;
+      } else if (lowerInput.includes('okay sleep') || lowerInput.includes('average sleep')) {
+        lifestyleUpdates.sleep = 3;
+      } else if (lowerInput.includes('poor sleep') || lowerInput.includes('bad sleep') || lowerInput.includes('tired')) {
+        lifestyleUpdates.sleep = 2;
+      } else if (lowerInput.includes('no sleep') || lowerInput.includes('terrible sleep') || lowerInput.includes('exhausted')) {
+        lifestyleUpdates.sleep = 1;
       }
     }
 
-    // Update medication adherence
-    if (parsed.medicationTaken !== undefined && currentStep === 'medications') {
-      const updatedMedicationEntries = formData.medicationEntries.map((entry: any) => ({
-        ...entry,
-        taken: parsed.medicationTaken,
-        timesTaken: parsed.medicationTaken ? 1 : undefined
-      }));
-      updates.medicationEntries = updatedMedicationEntries;
+    // Water
+    if (lowerInput.includes('water') || lowerInput.includes('hydrat') || lowerInput.includes('drink')) {
+      if (lowerInput.includes('lots of water') || lowerInput.includes('well hydrated') || lowerInput.includes('plenty')) {
+        lifestyleUpdates.water = 5;
+      } else if (lowerInput.includes('enough water') || lowerInput.includes('good hydration')) {
+        lifestyleUpdates.water = 4;
+      } else if (lowerInput.includes('some water') || lowerInput.includes('okay')) {
+        lifestyleUpdates.water = 3;
+      } else if (lowerInput.includes('little water') || lowerInput.includes('not much')) {
+        lifestyleUpdates.water = 2;
+      } else if (lowerInput.includes('dehydrated') || lowerInput.includes('barely any')) {
+        lifestyleUpdates.water = 1;
+      }
     }
 
-    // Update lifestyle factors
-    if (parsed.lifestyleValue && currentLifestyleFactor && currentStep === 'lifestyle') {
-      const updatedFactors = {
+    if (Object.keys(lifestyleUpdates).length > 0) {
+      updates.factors = {
         ...formData.factors,
-        [currentLifestyleFactor]: parsed.lifestyleValue as SeverityLevel
+        ...lifestyleUpdates
       };
-      updates.factors = updatedFactors;
     }
 
-    if (Object.keys(updates).length > 0) {
-      onUpdateFormData(updates);
+    // Extract notes
+    if (input.length > 20) {
+      const existingNotes = formData.notes || '';
+      const newNotes = existingNotes ? `${existingNotes}\n\nAI Assistant: ${input}` : `AI Assistant: ${input}`;
+      updates.notes = newNotes;
     }
+
+    return updates;
   };
 
-  const getNextQuestion = (): string | null => {
-    if (!user) return null;
-
-    switch (currentStep) {
-      case 'conditions':
-        if (currentConditionIndex < user.conditions.length - 1) {
-          const nextCondition = user.conditions[currentConditionIndex + 1];
-          setCurrentConditionIndex(currentConditionIndex + 1);
-          return `Now let's talk about your ${nextCondition.name}. How is it feeling today? Please describe it or rate it from 1-5.`;
-        } else {
-          setCurrentStep('medications');
-          return "Great! Now let's talk about your medications. Did you take any of your prescribed medications today?";
-        }
+  const analyzeCompleteness = (updates: any): { isComplete: boolean; missingInfo: string[] } => {
+    const missing: string[] = [];
+    
+    // Check if we have severity for all conditions
+    if (user && user.conditions.length > 0) {
+      const updatedEntries = updates.conditionEntries || formData.conditionEntries;
+      const missingSeverity = user.conditions.filter(condition => {
+        const entry = updatedEntries.find((e: any) => e.conditionId === condition.id);
+        return !entry || entry.severity === 0;
+      });
       
-      case 'medications':
-        setCurrentStep('lifestyle');
-        setCurrentLifestyleFactor('stress');
-        return "Perfect! Now let's talk about some lifestyle factors. How would you rate your stress level today from 1-5?";
-      
-      case 'lifestyle':
-        if (currentLifestyleFactor === 'stress') {
-          setCurrentLifestyleFactor('sleep');
-          return "How was your sleep quality last night? Rate it from 1-5 or describe it.";
-        } else if (currentLifestyleFactor === 'sleep') {
-          setCurrentLifestyleFactor('water');
-          return "How's your water intake today? Rate it from 1-5.";
-        } else if (currentLifestyleFactor === 'water') {
-          setCurrentLifestyleFactor('diet');
-          return "How would you rate your diet quality today from 1-5?";
-        } else {
-          setCurrentStep('complete');
-          return "Excellent! I've helped you fill out most of your check-in. You can review everything and add any additional notes in the main form. Is there anything else you'd like to tell me about your skin today?";
-        }
-      
-      case 'complete':
-        return null; // No more questions
-      
-      default:
-        return null;
+      if (missingSeverity.length > 0) {
+        missing.push(`severity ratings for ${missingSeverity.map(c => c.name).join(', ')}`);
+      }
     }
+
+    // Check medications if user has any
+    if (user && user.medications.length > 0) {
+      const updatedMedEntries = updates.medicationEntries || formData.medicationEntries;
+      const hasMedicationInfo = updatedMedEntries.some((entry: any) => entry.taken !== undefined);
+      
+      if (!hasMedicationInfo) {
+        missing.push('medication information');
+      }
+    }
+
+    return {
+      isComplete: missing.length === 0,
+      missingInfo: missing
+    };
   };
 
   const handleUserInput = async () => {
@@ -362,68 +372,54 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
         throw new Error('User not found');
       }
 
-      // Parse the user input locally first
-      const parsed = parseUserResponseLocal(userInput);
-      updateFormDataFromParsedResponse(parsed);
+      // Parse the comprehensive response
+      const updates = parseComprehensiveResponse(userInput);
+      
+      // Apply updates to form
+      if (Object.keys(updates).length > 0) {
+        onUpdateFormData(updates);
+      }
+
+      // Analyze completeness
+      const { isComplete, missingInfo } = analyzeCompleteness(updates);
 
       const context = {
         userName: user.name,
         conditions: user.conditions,
         medications: user.medications,
-        currentFormData: formData
+        currentFormData: { ...formData, ...updates }
       };
 
-      // Create a focused prompt for the current step
-      let contextualPrompt = `User responded: "${userInput}". Please provide ONLY a brief acknowledgment. Do not ask any questions.`;
+      // Create AI response based on what was captured and what's missing
+      let aiPrompt = `User described their skin: "${userInput}". `;
       
-      if (currentStep === 'conditions') {
-        const currentCondition = user.conditions[currentConditionIndex];
-        contextualPrompt = `User is describing their ${currentCondition?.name}: "${userInput}". Please acknowledge this briefly without asking follow-up questions.`;
-      } else if (currentStep === 'medications') {
-        contextualPrompt = `User answered about medication adherence: "${userInput}". Please acknowledge briefly without asking questions.`;
-      } else if (currentStep === 'lifestyle') {
-        contextualPrompt = `User rated their ${currentLifestyleFactor}: "${userInput}". Please acknowledge briefly without asking questions.`;
+      if (Object.keys(updates).length > 0) {
+        aiPrompt += `I successfully captured information about their skin condition. `;
       }
-
-      // Add user message to chat history
-      const newChatHistory: ChatMessage[] = [
-        ...chatHistory,
-        { role: 'user', content: contextualPrompt }
-      ];
+      
+      if (isComplete) {
+        aiPrompt += `I have all the information needed for their check-in. Please acknowledge and let them know their check-in is ready to save.`;
+      } else {
+        aiPrompt += `I still need information about: ${missingInfo.join(', ')}. Please ask for this specific missing information.`;
+        setNeedsMoreInfo(true);
+      }
 
       // Get AI response
-      const aiResponse = await openaiService.sendMessage(newChatHistory, context);
+      const aiResponse = await openaiService.sendMessage([
+        { role: 'user', content: aiPrompt }
+      ], context);
       
-      // Clean the response to ensure it's just an acknowledgment
-      const cleanResponse = aiResponse.split('.')[0] + '.'; // Take only first sentence
-      
-      addMessage('ai', cleanResponse);
+      addMessage('ai', aiResponse);
 
-      // Update chat history with AI response
+      // Update chat history
       setChatHistory([
-        ...newChatHistory,
-        { role: 'assistant', content: cleanResponse }
+        ...chatHistory,
+        { role: 'user', content: userInput },
+        { role: 'assistant', content: aiResponse }
       ]);
 
-      // Determine if we should ask the next question
-      let shouldProgress = false;
-
-      if (currentStep === 'conditions' && parsed.severity) {
-        shouldProgress = true;
-      } else if (currentStep === 'medications' && parsed.medicationTaken !== undefined) {
-        shouldProgress = true;
-      } else if (currentStep === 'lifestyle' && parsed.lifestyleValue) {
-        shouldProgress = true;
-      }
-
-      // Ask next question after a delay
-      if (shouldProgress) {
-        setTimeout(() => {
-          const nextQuestion = getNextQuestion();
-          if (nextQuestion) {
-            addMessage('ai', nextQuestion);
-          }
-        }, 2000);
+      if (isComplete) {
+        setNeedsMoreInfo(false);
       }
 
     } catch (error: any) {
@@ -446,12 +442,9 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     setError(null);
     setMessages([]);
     setChatHistory([]);
-    setCurrentStep('greeting');
-    setCurrentConditionIndex(0);
-    setCurrentLifestyleFactor(null);
     setConnectionStatus('connecting');
     setIsInitialized(false);
-    setConversationStarted(false);
+    setNeedsMoreInfo(false);
   };
 
   // Show error screen if connection failed
@@ -481,12 +474,6 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
                     <li>Add it to your .env file as VITE_OPENAI_API_KEY</li>
                     <li>Restart the development server</li>
                   </ol>
-                </div>
-              )}
-              {import.meta.env.VITE_OPENAI_API_KEY === 'your_openai_api_key' && (
-                <div className="text-sm text-gray-600 bg-yellow-50 p-3 rounded-lg">
-                  <p className="font-medium mb-1">API Key Not Configured:</p>
-                  <p>Please replace 'your_openai_api_key' in your .env file with a real OpenAI API key.</p>
                 </div>
               )}
             </div>
@@ -525,9 +512,9 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
               <Bot size={18} />
             </div>
             <div>
-              <h3 className="font-medium text-gray-800">ChatGPT Assistant</h3>
+              <h3 className="font-medium text-gray-800">AI Check-in Assistant</h3>
               <p className="text-sm text-gray-500">
-                {connectionStatus === 'connected' && 'Connected • One question at a time'}
+                {connectionStatus === 'connected' && 'Tell me about your skin and I\'ll fill out your form'}
                 {connectionStatus === 'connecting' && 'Connecting to ChatGPT...'}
                 {connectionStatus === 'error' && 'Connection Failed'}
               </p>
@@ -588,7 +575,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
                 <div className="bg-gray-100 rounded-lg px-4 py-2">
                   <div className="flex items-center space-x-2">
                     <Loader size={16} className="animate-spin text-gray-500" />
-                    <span className="text-sm text-gray-600">ChatGPT is thinking...</span>
+                    <span className="text-sm text-gray-600">Analyzing your response...</span>
                   </div>
                 </div>
               </div>
@@ -618,7 +605,8 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={
-                connectionStatus === 'connected' ? "Type your response..." : 
+                connectionStatus === 'connected' ? 
+                  (needsMoreInfo ? "Please provide the additional information..." : "Describe how your skin is today...") : 
                 connectionStatus === 'connecting' ? "Connecting..." : "Connection failed"
               }
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
@@ -634,7 +622,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
           </div>
           <div className="flex justify-between items-center mt-2">
             <p className="text-xs text-gray-500">
-              Press Enter to send • AI acknowledges, then asks next question
+              Describe your skin condition, medications, stress, sleep, etc. - I'll fill out the form automatically
             </p>
             {connectionStatus === 'connected' && (
               <button

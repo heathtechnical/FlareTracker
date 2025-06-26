@@ -7,12 +7,12 @@ if (!apiKey) {
   console.warn('OpenAI API key not found. Please set VITE_OPENAI_API_KEY in your environment variables.');
 }
 
-if (apiKey === 'your_openai_api_key') {
+if (apiKey === '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') {
   console.warn('OpenAI API key is set to placeholder value. Please update with a real API key.');
 }
 
 // Initialize OpenAI client
-const openai = apiKey && apiKey !== 'your_openai_api_key' ? new OpenAI({
+const openai = apiKey && apiKey !== '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' ? new OpenAI({
   apiKey: apiKey,
   dangerouslyAllowBrowser: true // Note: In production, you'd want to use a backend proxy
 }) : null;
@@ -48,35 +48,26 @@ export class OpenAIService {
   }
 
   private createSystemPrompt(context: CheckInContext): string {
-    return `You are a helpful AI assistant for a skin health tracking app. Your ONLY job is to provide brief, empathetic acknowledgments to user responses.
-
-CRITICAL RULES - FOLLOW EXACTLY:
-1. NEVER ask questions - the system handles all questions automatically
-2. NEVER include follow-up questions in your response
-3. ONLY provide acknowledgment and support
-4. Keep responses to 1 sentence maximum
-5. Be warm and understanding
-6. NEVER use question marks or question words
+    return `You are a helpful AI assistant for a skin health tracking app. Your job is to help users with their daily check-ins by providing appropriate responses based on what information they've shared.
 
 USER CONTEXT:
 - User's name: ${context.userName}
-- Conditions: ${context.conditions.map(c => c.name).join(', ')}
+- Conditions being tracked: ${context.conditions.map(c => c.name).join(', ')}
+- Medications: ${context.medications.map(m => m.name).join(', ')}
 
-PERFECT RESPONSE EXAMPLES:
-- "Thank you for sharing that."
-- "I understand, that sounds challenging."
-- "Got it, I've noted that information."
-- "I'm sorry you're experiencing that."
-- "That's great to hear."
-- "I appreciate you letting me know."
+RESPONSE GUIDELINES:
+1. If the user has provided comprehensive information about their skin, acknowledge what you captured and let them know their check-in is ready
+2. If information is missing, ask specifically for what's needed (e.g., severity ratings, medication adherence)
+3. Be warm, supportive, and encouraging
+4. Keep responses concise and helpful
+5. If they mention symptoms or concerns, acknowledge them empathetically
 
-ABSOLUTELY FORBIDDEN (NEVER DO THIS):
-- Any response with "?" 
-- Any response with question words (how, what, when, where, why, can, could, would, do, did, are, is, tell me, let me know)
-- Multiple sentences
-- Follow-up questions of any kind
+EXAMPLES:
+- "Thank you for sharing! I've captured information about your eczema severity and symptoms. Your check-in looks complete and ready to save."
+- "I understand your eczema is bothering you today. I still need to know about your medication - did you take your prescribed treatments today?"
+- "That sounds challenging. I've noted your condition details, but could you tell me about your stress levels and sleep quality?"
 
-REMEMBER: ACKNOWLEDGMENT ONLY. NO QUESTIONS. EVER. ONE SENTENCE MAXIMUM.`;
+Remember: Be supportive and focus on helping them complete their health tracking accurately.`;
   }
 
   async sendMessage(
@@ -88,7 +79,7 @@ REMEMBER: ACKNOWLEDGMENT ONLY. NO QUESTIONS. EVER. ONE SENTENCE MAXIMUM.`;
       if (!apiKey) {
         throw new Error('OpenAI API key not configured. Please set VITE_OPENAI_API_KEY in your environment variables.');
       }
-      if (apiKey === 'your_openai_api_key') {
+      if (apiKey === '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') {
         throw new Error('OpenAI API key is set to placeholder value. Please update with a real API key.');
       }
       throw new Error('OpenAI client not initialized properly.');
@@ -108,11 +99,10 @@ REMEMBER: ACKNOWLEDGMENT ONLY. NO QUESTIONS. EVER. ONE SENTENCE MAXIMUM.`;
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [systemMessage, ...messages],
-        max_tokens: 30, // Even shorter responses
-        temperature: 0.1, // Very low temperature for consistent responses
-        presence_penalty: 0.5,
-        frequency_penalty: 0.5,
-        stop: ['?', '\n'] // Stop at question marks or newlines
+        max_tokens: 150,
+        temperature: 0.7,
+        presence_penalty: 0.3,
+        frequency_penalty: 0.3
       });
 
       console.log('OpenAI response received:', {
@@ -126,10 +116,7 @@ REMEMBER: ACKNOWLEDGMENT ONLY. NO QUESTIONS. EVER. ONE SENTENCE MAXIMUM.`;
         throw new Error('No response content received from OpenAI');
       }
 
-      // Ultra-aggressive cleaning
-      const cleanedContent = this.ultraCleanResponse(content);
-
-      return cleanedContent;
+      return content.trim();
     } catch (error: any) {
       console.error('OpenAI API error:', error);
       
@@ -161,60 +148,6 @@ REMEMBER: ACKNOWLEDGMENT ONLY. NO QUESTIONS. EVER. ONE SENTENCE MAXIMUM.`;
       // Generic error handling
       throw new Error(`OpenAI API error: ${error.message || 'Unknown error occurred'}`);
     }
-  }
-
-  private ultraCleanResponse(response: string): string {
-    // Remove any text after question marks
-    let cleaned = response.split('?')[0];
-    
-    // Remove any text after newlines
-    cleaned = cleaned.split('\n')[0];
-    
-    // Split into sentences and take only the first one
-    const sentences = cleaned.split(/[.!]+/).filter(s => s.trim());
-    
-    if (sentences.length === 0) {
-      return this.getFallbackResponse();
-    }
-    
-    let firstSentence = sentences[0].trim();
-    
-    // Ultra-aggressive question word filtering
-    const questionWords = [
-      'how', 'what', 'when', 'where', 'why', 'which', 'who', 'whom', 'whose',
-      'can you', 'could you', 'would you', 'will you', 'should you',
-      'do you', 'did you', 'are you', 'is there', 'have you',
-      'tell me', 'let me know', 'would like', 'anything else',
-      'next', 'now', 'also', 'additionally', 'furthermore'
-    ];
-    
-    const lowerSentence = firstSentence.toLowerCase();
-    
-    // If it contains any question words, use fallback
-    if (questionWords.some(word => lowerSentence.includes(word))) {
-      return this.getFallbackResponse();
-    }
-    
-    // Ensure it ends with a period
-    if (!firstSentence.endsWith('.') && !firstSentence.endsWith('!')) {
-      firstSentence += '.';
-    }
-    
-    return firstSentence;
-  }
-
-  private getFallbackResponse(): string {
-    const fallbackResponses = [
-      "Thank you for sharing that.",
-      "I've noted that information.",
-      "Got it, thank you.",
-      "I understand.",
-      "Thank you for letting me know.",
-      "I appreciate you sharing that.",
-      "That's helpful information."
-    ];
-
-    return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
   }
 
   // Test connection method
