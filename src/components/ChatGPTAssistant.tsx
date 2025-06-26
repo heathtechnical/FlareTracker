@@ -13,14 +13,15 @@ interface Message {
 interface ChatGPTAssistantProps {
   formData?: any;
   onUpdateFormData?: (data: any) => void;
+  onClose?: () => void;
 }
 
 export default function ChatGPTAssistant({ 
   formData,
-  onUpdateFormData
+  onUpdateFormData,
+  onClose
 }: ChatGPTAssistantProps) {
   const { user } = useApp();
-  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -37,10 +38,10 @@ export default function ChatGPTAssistant({
   }, [messages]);
 
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
+    if (messages.length === 0) {
       initializeConversation();
     }
-  }, [isOpen]);
+  }, []);
 
   const checkOpenAIConnection = async (): Promise<boolean> => {
     try {
@@ -54,6 +55,11 @@ export default function ChatGPTAssistant({
       // Check if API key looks like a valid OpenAI key format
       if (!apiKey.startsWith('sk-')) {
         throw new Error('OpenAI API key format is invalid');
+      }
+      
+      // Check if it's the placeholder key
+      if (apiKey === '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') {
+        throw new Error('OpenAI API key is set to placeholder value');
       }
       
       // Test the connection with a simple request
@@ -88,12 +94,8 @@ export default function ChatGPTAssistant({
       setIsConnected(true);
 
       // Create initial greeting message
-      const userConditions = user?.conditions || [];
-      const greeting = `Hello! I'm your health assistant. I can help you understand your symptoms, provide general health information, and answer questions about your conditions${userConditions.length > 0 ? ` (${userConditions.join(', ')})` : ''}. 
-
-Please note that I'm not a substitute for professional medical advice. Always consult with your healthcare provider for medical decisions.
-
-How can I help you today?`;
+      const userConditions = user?.conditions?.map(c => c.name) || [];
+      const greeting = `Hi! I'm here to help you with your daily skin check-in. Are you ready to get started?`;
 
       const initialMessage: Message = {
         id: Date.now().toString(),
@@ -110,7 +112,7 @@ How can I help you today?`;
       
       const errorMsg: Message = {
         id: Date.now().toString(),
-        content: `I'm sorry, but I'm currently unable to connect to the AI service. Error: ${errorMessage}. Please check your internet connection and try again later.`,
+        content: `I'm sorry, but I'm currently unable to connect to the AI service. Error: ${errorMessage}. Please check your API key configuration and try again.`,
         sender: 'assistant',
         timestamp: new Date(),
       };
@@ -139,12 +141,23 @@ How can I help you today?`;
         userName: user?.name || 'User',
         conditions: user?.conditions || [],
         medications: user?.medications || [],
-        formData: formData || {}
+        currentFormData: formData || {}
       };
 
+      // Convert messages to the format expected by openaiService
+      const chatMessages = messages.slice(-5).map(msg => ({
+        role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
+        content: msg.content
+      }));
+
+      // Add the current user message
+      chatMessages.push({
+        role: 'user' as const,
+        content: inputMessage.trim()
+      });
+
       const response = await openaiService.sendMessage(
-        inputMessage.trim(),
-        messages.slice(-5), // Last 5 messages for context
+        chatMessages,
         checkInContext
       );
 
@@ -177,30 +190,20 @@ How can I help you today?`;
     }
   };
 
-  return (
-    <>
-      {/* Chat Toggle Button */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-all duration-300 z-40 ${
-          isOpen ? 'scale-0' : 'scale-100'
-        }`}
-        aria-label="Open AI Assistant"
-      >
-        <MessageCircle className="w-6 h-6" />
-      </button>
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    }
+  };
 
-      {/* Chat Window */}
-      <div
-        className={`fixed bottom-6 right-6 w-96 h-[500px] bg-white rounded-lg shadow-2xl border border-gray-200 transition-all duration-300 z-50 ${
-          isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
-        }`}
-      >
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="w-full max-w-md h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-blue-600 text-white rounded-t-lg">
           <div className="flex items-center space-x-2">
             <Bot className="w-5 h-5" />
-            <h3 className="font-semibold">Health Assistant</h3>
+            <h3 className="font-semibold">ChatGPT Assistant</h3>
             {isConnected && (
               <div className="w-2 h-2 bg-green-400 rounded-full"></div>
             )}
@@ -209,7 +212,7 @@ How can I help you today?`;
             )}
           </div>
           <button
-            onClick={() => setIsOpen(false)}
+            onClick={handleClose}
             className="text-white hover:text-gray-200 transition-colors"
             aria-label="Close chat"
           >
@@ -218,7 +221,7 @@ How can I help you today?`;
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 h-[360px]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -278,7 +281,7 @@ How can I help you today?`;
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={isConnected ? "Ask me about your health..." : "Connection error..."}
+              placeholder={isConnected ? "Tell me how your skin is today..." : "Connection error..."}
               disabled={!isConnected || isLoading}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
@@ -292,12 +295,14 @@ How can I help you today?`;
             </button>
           </div>
           {connectionError && (
-            <p className="text-xs text-red-600 mt-2">
-              Connection error: {connectionError}
-            </p>
+            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-600">
+              <strong>Connection Error:</strong> {connectionError}
+              <br />
+              <span className="text-red-500">Please check your OpenAI API key configuration in the .env file.</span>
+            </div>
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
