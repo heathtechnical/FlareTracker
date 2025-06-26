@@ -48,54 +48,33 @@ export class OpenAIService {
   }
 
   private createSystemPrompt(context: CheckInContext): string {
-    return `You are a helpful AI assistant for a skin health tracking app called "Skin Logger". Your role is to help users complete their daily check-ins in a conversational, empathetic way.
+    return `You are a helpful AI assistant for a skin health tracking app. Your ONLY job is to provide brief, empathetic acknowledgments to user responses.
+
+CRITICAL RULES - FOLLOW EXACTLY:
+1. NEVER ask questions - the system handles all questions automatically
+2. NEVER include follow-up questions in your response
+3. ONLY provide acknowledgment and support
+4. Keep responses to 1 sentence maximum
+5. Be warm and understanding
 
 USER CONTEXT:
 - User's name: ${context.userName}
-- Conditions being tracked: ${context.conditions.map(c => `${c.name}${c.description ? ` (${c.description})` : ''}`).join(', ')}
-- Medications: ${context.medications.map(m => `${m.name} (${m.frequency})`).join(', ')}
+- Conditions: ${context.conditions.map(c => c.name).join(', ')}
 
-YOUR GOALS:
-1. Help the user rate their skin condition severity (1-5 scale: 1=minimal, 2=mild, 3=moderate, 4=severe, 5=extreme)
-2. Identify any symptoms they're experiencing (itchiness, redness, dryness, flaking, pain, swelling, burning, bleeding)
-3. Ask about medication adherence
-4. Gather lifestyle factors (stress, sleep quality, water intake, diet quality on 1-5 scale)
-5. Be supportive and understanding about their skin health journey
-
-CONVERSATION STYLE:
-- Be warm, empathetic, and encouraging
-- Use natural, conversational language
-- Acknowledge their responses positively
-- Be understanding about bad skin days
-- Celebrate improvements and progress
-- Keep responses concise (1-2 sentences max)
-
-CRITICAL RULES:
-- NEVER ask multiple questions in one response
-- NEVER include follow-up questions in your response
-- ONLY provide acknowledgment and support
-- The system will handle asking the next question automatically
-- Focus on being empathetic and understanding
-- Don't provide medical advice - encourage consulting healthcare providers for concerns
-- If they mention severe symptoms or worsening conditions, gently suggest consulting their doctor
-
-RESPONSE FORMAT:
-Respond with ONLY a brief acknowledgment or supportive comment about what the user just shared. Do NOT ask any questions - the system handles question flow automatically.
-
-Examples of PERFECT responses:
-- "Thank you for sharing that. I've noted your severity rating."
+PERFECT RESPONSE EXAMPLES:
+- "Thank you for sharing that."
 - "I understand, that sounds challenging."
-- "That's great to hear!"
+- "Got it, I've noted that information."
 - "I'm sorry you're experiencing that."
-- "Got it, I've recorded that information."
-- "Thank you for letting me know."
+- "That's great to hear!"
 
-Examples of WRONG responses (DO NOT DO THIS):
-- "Thank you for sharing that. How are your symptoms today?" (NO QUESTIONS!)
-- "I understand. What medications did you take?" (NO QUESTIONS!)
-- "That's noted. Can you tell me about..." (NO QUESTIONS!)
+FORBIDDEN RESPONSES (NEVER DO THIS):
+- "Thank you for sharing that. How are your symptoms?" (NO QUESTIONS!)
+- "I understand. What about your medications?" (NO QUESTIONS!)
+- "Got it. Can you tell me..." (NO QUESTIONS!)
+- Any response with "?" or question words
 
-Remember: ACKNOWLEDGMENT ONLY, NO QUESTIONS!`;
+REMEMBER: ACKNOWLEDGMENT ONLY. NO QUESTIONS. EVER.`;
   }
 
   async sendMessage(
@@ -127,10 +106,10 @@ Remember: ACKNOWLEDGMENT ONLY, NO QUESTIONS!`;
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [systemMessage, ...messages],
-        max_tokens: 100, // Reduced to encourage shorter responses
-        temperature: 0.7,
-        presence_penalty: 0.1,
-        frequency_penalty: 0.1
+        max_tokens: 50, // Very short responses only
+        temperature: 0.3, // Lower temperature for more consistent responses
+        presence_penalty: 0.2,
+        frequency_penalty: 0.3
       });
 
       console.log('OpenAI response received:', {
@@ -144,8 +123,8 @@ Remember: ACKNOWLEDGMENT ONLY, NO QUESTIONS!`;
         throw new Error('No response content received from OpenAI');
       }
 
-      // Clean the response to ensure it doesn't contain questions
-      const cleanedContent = this.cleanResponse(content);
+      // Aggressively clean the response
+      const cleanedContent = this.aggressivelyCleanResponse(content);
 
       return cleanedContent;
     } catch (error: any) {
@@ -181,36 +160,27 @@ Remember: ACKNOWLEDGMENT ONLY, NO QUESTIONS!`;
     }
   }
 
-  private cleanResponse(response: string): string {
-    // Remove any questions from the response
-    const sentences = response.split(/[.!?]+/).filter(s => s.trim());
+  private aggressivelyCleanResponse(response: string): string {
+    // Remove any text after question marks
+    let cleaned = response.split('?')[0];
     
-    // Filter out sentences that contain question marks or question words
-    const nonQuestionSentences = sentences.filter(sentence => {
+    // Split into sentences and filter aggressively
+    const sentences = cleaned.split(/[.!]+/).filter(s => s.trim());
+    
+    // Remove sentences with question words or patterns
+    const questionWords = ['how', 'what', 'when', 'where', 'why', 'can you', 'could you', 'would you', 'do you', 'did you', 'are you', 'is there', 'tell me', 'let me know', 'would like', 'anything else'];
+    
+    const safeSentences = sentences.filter(sentence => {
       const lowerSentence = sentence.toLowerCase().trim();
-      return !sentence.includes('?') && 
-             !lowerSentence.startsWith('how') &&
-             !lowerSentence.startsWith('what') &&
-             !lowerSentence.startsWith('when') &&
-             !lowerSentence.startsWith('where') &&
-             !lowerSentence.startsWith('why') &&
-             !lowerSentence.startsWith('can you') &&
-             !lowerSentence.startsWith('could you') &&
-             !lowerSentence.startsWith('would you') &&
-             !lowerSentence.startsWith('do you') &&
-             !lowerSentence.startsWith('did you') &&
-             !lowerSentence.startsWith('are you') &&
-             !lowerSentence.startsWith('is there') &&
-             !lowerSentence.includes('tell me') &&
-             !lowerSentence.includes('let me know');
+      return !questionWords.some(word => lowerSentence.includes(word));
     });
 
-    if (nonQuestionSentences.length > 0) {
-      // Take the first acknowledgment sentence
-      return nonQuestionSentences[0].trim() + '.';
+    if (safeSentences.length > 0) {
+      // Take only the first safe sentence
+      return safeSentences[0].trim() + '.';
     }
 
-    // Fallback acknowledgments if the response was all questions
+    // Ultimate fallback - guaranteed safe responses
     const fallbackResponses = [
       "Thank you for sharing that.",
       "I've noted that information.",
