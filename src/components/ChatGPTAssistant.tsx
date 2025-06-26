@@ -98,9 +98,9 @@ export default function ChatGPTAssistant({
       setIsConnected(true);
 
       const conditionNames = user?.conditions?.map(c => c.name).join(', ') || 'your skin conditions';
-      const greeting = `Hi! I'm here to help you complete your daily skin check-in. Let's start by talking about how your ${conditionNames} ${user?.conditions?.length === 1 ? 'is' : 'are'} feeling today. 
+      const greeting = `Hi! I'm here to help you complete your daily skin check-in. 
 
-Please describe how your skin is today - you can mention severity, symptoms, or anything you've noticed.`;
+How is your ${conditionNames} ${user?.conditions?.length === 1 ? '' : 'are'} feeling today? Please tell me about the severity and anything you've noticed.`;
 
       const initialMessage: Message = {
         id: Date.now().toString(),
@@ -130,6 +130,11 @@ Please describe how your skin is today - you can mention severity, symptoms, or 
     const conditionsList = user?.conditions?.map(c => `- ${c.name} (ID: ${c.id})`).join('\n') || '';
     const medicationsList = user?.medications?.map(m => `- ${m.name} (ID: ${m.id}, Frequency: ${m.frequency})`).join('\n') || '';
     
+    // Check which conditions still need severity ratings
+    const missingConditions = user?.conditions?.filter(c => 
+      !collectedData.conditionEntries[c.id]?.severity
+    ).map(c => c.name) || [];
+    
     return `You are a helpful AI assistant for a skin health tracking app. Your job is to collect check-in information through natural conversation and return structured JSON data.
 
 USER'S CONDITIONS:
@@ -141,18 +146,21 @@ ${medicationsList}
 CURRENT COLLECTED DATA:
 ${JSON.stringify(collectedData, null, 2)}
 
+MISSING SEVERITY RATINGS FOR: ${missingConditions.join(', ') || 'None - all conditions rated'}
+
 YOUR TASKS:
 1. Have a natural conversation about the user's skin health today
-2. Collect information about:
-   - Severity for each condition (1-5 scale: 1=minimal, 2=mild, 3=moderate, 4=severe, 5=extreme)
-   - Symptoms for each condition (itchiness, redness, dryness, flaking, pain, swelling, burning, bleeding)
-   - Whether medications were taken
-   - Lifestyle factors (stress, sleep, water intake, diet quality - all 1-5 scale)
-   - Any additional notes
+2. MANDATORY: Get severity rating (1-5 scale) for each condition:
+   - 1 = minimal, 2 = mild, 3 = moderate, 4 = severe, 5 = extreme
+3. OPTIONAL: Pick up from conversation naturally (don't explicitly ask unless mentioned):
+   - Symptoms (itchiness, redness, dryness, flaking, pain, swelling, burning, bleeding)
+   - Medication usage (assume NOT taken unless explicitly mentioned)
+   - Lifestyle factors (stress, sleep, water, diet - 1-5 scale)
+   - General notes
 
-3. When you have enough information, provide a summary and ask for confirmation
+4. When you have severity ratings for ALL conditions, provide a summary and set isComplete to true
 
-4. CRITICAL: At the end of each response, include a JSON block with the collected data in this exact format:
+CRITICAL: At the end of each response, include a JSON block with the collected data in this exact format:
 \`\`\`json
 {
   "conditionEntries": {
@@ -182,12 +190,13 @@ YOUR TASKS:
 \`\`\`
 
 IMPORTANT RULES:
-- Only include data that the user has actually provided
-- Don't make assumptions or fill in missing data
-- Set "isComplete": true only when you have severity ratings for all conditions
+- ONLY include data that the user has actually provided in conversation
+- Don't ask about symptoms or medications unless the user brings them up
+- Assume medications are NOT taken unless explicitly mentioned
+- Focus conversation on getting severity ratings for all conditions
 - Be conversational and supportive, not clinical
-- Ask follow-up questions to get missing information
-- When complete, ask for confirmation before setting isComplete to true`;
+- Only set "isComplete": true when you have severity ratings for ALL conditions
+- Don't make assumptions or fill in missing optional data`;
   };
 
   const sendMessage = async () => {
@@ -274,11 +283,11 @@ IMPORTANT RULES:
               }) || [];
             }
 
-            // Update medication entries
+            // Update medication entries - only if explicitly mentioned
             if (extractedData.medicationEntries) {
               formUpdate.medicationEntries = formData?.medicationEntries?.map((entry: any) => {
                 const collectedEntry = extractedData.medicationEntries[entry.medicationId];
-                if (collectedEntry) {
+                if (collectedEntry !== undefined) {
                   return {
                     ...entry,
                     taken: collectedEntry.taken !== undefined ? collectedEntry.taken : entry.taken,
@@ -290,7 +299,7 @@ IMPORTANT RULES:
               }) || [];
             }
 
-            // Update factors
+            // Update factors - only if mentioned
             if (extractedData.factors) {
               formUpdate.factors = {
                 ...formData?.factors,
@@ -456,7 +465,7 @@ IMPORTANT RULES:
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={isConnected ? "Describe how your skin is today..." : "Connection error..."}
+              placeholder={isConnected ? "How is your skin feeling today?" : "Connection error..."}
               disabled={!isConnected || isLoading}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
