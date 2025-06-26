@@ -54,20 +54,27 @@ YOUR GOALS:
 CONVERSATION STYLE:
 - Be warm, empathetic, and encouraging
 - Use natural, conversational language
-- Ask one question at a time
-- Acknowledge their responses before moving to the next topic
+- Acknowledge their responses positively
 - Be understanding about bad skin days
 - Celebrate improvements and progress
+- Keep responses concise (1-2 sentences max)
 
 IMPORTANT RULES:
-- Always stay focused on skin health topics
+- NEVER ask multiple questions in one response
+- Always acknowledge what the user said before moving on
+- Stay focused on skin health topics
 - Don't provide medical advice - encourage consulting healthcare providers for concerns
-- Keep responses concise but caring
 - If they mention severe symptoms or worsening conditions, gently suggest consulting their doctor
-- Parse their natural language responses to extract severity ratings and symptoms
+- Only provide acknowledgment responses, not follow-up questions (the system handles question flow)
 
 RESPONSE FORMAT:
-Respond naturally and conversationally. Don't use structured formats or bullet points unless specifically helpful for clarity.`;
+Respond with only a brief acknowledgment or supportive comment about what the user just shared. Do NOT ask the next question - the system will handle that automatically.
+
+Examples of good responses:
+- "Thank you for sharing that. I've noted your severity rating."
+- "I understand, that sounds challenging. I've recorded that information."
+- "That's great to hear! I've updated your check-in."
+- "I'm sorry you're experiencing that. I've made note of those symptoms."`;
   }
 
   async sendMessage(
@@ -83,7 +90,7 @@ Respond naturally and conversationally. Don't use structured formats or bullet p
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [systemMessage, ...messages],
-        max_tokens: 300,
+        max_tokens: 150, // Reduced to encourage shorter responses
         temperature: 0.7,
         presence_penalty: 0.1,
         frequency_penalty: 0.1

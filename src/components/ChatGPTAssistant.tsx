@@ -27,7 +27,9 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [currentTopic, setCurrentTopic] = useState('greeting');
+  const [currentStep, setCurrentStep] = useState<'greeting' | 'conditions' | 'medications' | 'lifestyle' | 'complete'>('greeting');
+  const [currentConditionIndex, setCurrentConditionIndex] = useState(0);
+  const [currentLifestyleFactor, setCurrentLifestyleFactor] = useState<'stress' | 'sleep' | 'water' | 'diet' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -101,50 +103,131 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     addMessage('user', content);
   };
 
+  const parseUserResponseLocal = (input: string): { 
+    severity?: number; 
+    symptoms?: string[]; 
+    medicationTaken?: boolean;
+    lifestyleValue?: number;
+  } => {
+    const lowerInput = input.toLowerCase();
+    const result: any = {};
+
+    // Parse severity
+    const severityKeywords = {
+      'minimal': 1, 'very mild': 1, 'barely': 1,
+      'mild': 2, 'slight': 2, 'little': 2,
+      'moderate': 3, 'medium': 3, 'okay': 3, 'average': 3,
+      'severe': 4, 'bad': 4, 'painful': 4, 'worse': 4,
+      'extreme': 5, 'terrible': 5, 'unbearable': 5, 'worst': 5
+    };
+
+    for (const [keyword, value] of Object.entries(severityKeywords)) {
+      if (lowerInput.includes(keyword)) {
+        result.severity = value;
+        break;
+      }
+    }
+
+    // Parse numbers
+    const numberMatch = input.match(/\b([1-5])\b/);
+    if (numberMatch && !result.severity) {
+      result.severity = parseInt(numberMatch[1]);
+    }
+
+    // Parse symptoms
+    const symptoms: string[] = [];
+    const symptomKeywords = {
+      'itchy': 'Itchiness', 'itch': 'Itchiness', 'scratchy': 'Itchiness',
+      'red': 'Redness', 'inflamed': 'Redness',
+      'dry': 'Dryness',
+      'flaky': 'Flaking', 'peeling': 'Flaking',
+      'painful': 'Pain', 'hurt': 'Pain', 'sore': 'Pain',
+      'swollen': 'Swelling',
+      'burning': 'Burning',
+      'bleeding': 'Bleeding'
+    };
+
+    Object.entries(symptomKeywords).forEach(([keyword, symptom]) => {
+      if (lowerInput.includes(keyword) && !symptoms.includes(symptom)) {
+        symptoms.push(symptom);
+      }
+    });
+
+    if (symptoms.length > 0) {
+      result.symptoms = symptoms;
+    }
+
+    // Parse medication adherence
+    if (lowerInput.includes('yes') || lowerInput.includes('took') || lowerInput.includes('taken')) {
+      result.medicationTaken = true;
+    } else if (lowerInput.includes('no') || lowerInput.includes('forgot') || lowerInput.includes('skipped')) {
+      result.medicationTaken = false;
+    }
+
+    // Parse lifestyle factors
+    if (currentLifestyleFactor) {
+      if (currentLifestyleFactor === 'stress') {
+        if (lowerInput.includes('very stressed') || lowerInput.includes('extremely stressed')) result.lifestyleValue = 5;
+        else if (lowerInput.includes('stressed') || lowerInput.includes('high stress')) result.lifestyleValue = 4;
+        else if (lowerInput.includes('moderate') || lowerInput.includes('some stress')) result.lifestyleValue = 3;
+        else if (lowerInput.includes('little stress') || lowerInput.includes('low stress')) result.lifestyleValue = 2;
+        else if (lowerInput.includes('no stress') || lowerInput.includes('relaxed') || lowerInput.includes('calm')) result.lifestyleValue = 1;
+      } else if (currentLifestyleFactor === 'sleep') {
+        if (lowerInput.includes('excellent') || lowerInput.includes('great sleep')) result.lifestyleValue = 5;
+        else if (lowerInput.includes('good') || lowerInput.includes('well')) result.lifestyleValue = 4;
+        else if (lowerInput.includes('okay') || lowerInput.includes('average')) result.lifestyleValue = 3;
+        else if (lowerInput.includes('poor') || lowerInput.includes('bad')) result.lifestyleValue = 2;
+        else if (lowerInput.includes('terrible') || lowerInput.includes('awful') || lowerInput.includes('no sleep')) result.lifestyleValue = 1;
+      } else if (currentLifestyleFactor === 'water') {
+        if (lowerInput.includes('lots') || lowerInput.includes('plenty') || lowerInput.includes('well hydrated')) result.lifestyleValue = 5;
+        else if (lowerInput.includes('enough') || lowerInput.includes('good')) result.lifestyleValue = 4;
+        else if (lowerInput.includes('some') || lowerInput.includes('okay')) result.lifestyleValue = 3;
+        else if (lowerInput.includes('little') || lowerInput.includes('not much')) result.lifestyleValue = 2;
+        else if (lowerInput.includes('barely') || lowerInput.includes('dehydrated')) result.lifestyleValue = 1;
+      } else if (currentLifestyleFactor === 'diet') {
+        if (lowerInput.includes('excellent') || lowerInput.includes('very healthy')) result.lifestyleValue = 5;
+        else if (lowerInput.includes('good') || lowerInput.includes('healthy')) result.lifestyleValue = 4;
+        else if (lowerInput.includes('okay') || lowerInput.includes('average')) result.lifestyleValue = 3;
+        else if (lowerInput.includes('poor') || lowerInput.includes('bad')) result.lifestyleValue = 2;
+        else if (lowerInput.includes('terrible') || lowerInput.includes('junk')) result.lifestyleValue = 1;
+      }
+
+      // Try to parse numbers for lifestyle factors
+      if (numberMatch && !result.lifestyleValue) {
+        result.lifestyleValue = parseInt(numberMatch[1]);
+      }
+    }
+
+    return result;
+  };
+
   const updateFormDataFromParsedResponse = (parsed: any) => {
     const updates: any = {};
 
     // Update severity for current condition
-    if (parsed.severity && user && user.conditions.length > 0) {
+    if (parsed.severity && user && currentStep === 'conditions') {
       const updatedConditionEntries = [...formData.conditionEntries];
+      const currentCondition = user.conditions[currentConditionIndex];
       
-      // Find the first condition that doesn't have a severity set, or update the first one
-      let targetIndex = updatedConditionEntries.findIndex(entry => entry.severity === 0);
-      if (targetIndex === -1) targetIndex = 0;
-      
-      if (updatedConditionEntries[targetIndex]) {
-        updatedConditionEntries[targetIndex] = {
-          ...updatedConditionEntries[targetIndex],
-          severity: parsed.severity as SeverityLevel,
-          symptoms: [
-            ...updatedConditionEntries[targetIndex].symptoms,
-            ...(parsed.symptoms || [])
-          ].filter((symptom, index, arr) => arr.indexOf(symptom) === index) // Remove duplicates
-        };
-        updates.conditionEntries = updatedConditionEntries;
-      }
-    }
-
-    // Update symptoms only
-    if (parsed.symptoms && !parsed.severity && user && user.conditions.length > 0) {
-      const updatedConditionEntries = [...formData.conditionEntries];
-      let targetIndex = updatedConditionEntries.findIndex(entry => entry.severity > 0);
-      if (targetIndex === -1) targetIndex = 0;
-      
-      if (updatedConditionEntries[targetIndex]) {
-        updatedConditionEntries[targetIndex] = {
-          ...updatedConditionEntries[targetIndex],
-          symptoms: [
-            ...updatedConditionEntries[targetIndex].symptoms,
-            ...parsed.symptoms
-          ].filter((symptom, index, arr) => arr.indexOf(symptom) === index)
-        };
-        updates.conditionEntries = updatedConditionEntries;
+      if (currentCondition) {
+        const entryIndex = updatedConditionEntries.findIndex(e => e.conditionId === currentCondition.id);
+        
+        if (entryIndex >= 0) {
+          updatedConditionEntries[entryIndex] = {
+            ...updatedConditionEntries[entryIndex],
+            severity: parsed.severity as SeverityLevel,
+            symptoms: [
+              ...updatedConditionEntries[entryIndex].symptoms,
+              ...(parsed.symptoms || [])
+            ].filter((symptom, index, arr) => arr.indexOf(symptom) === index)
+          };
+          updates.conditionEntries = updatedConditionEntries;
+        }
       }
     }
 
     // Update medication adherence
-    if (parsed.medicationTaken !== undefined) {
+    if (parsed.medicationTaken !== undefined && currentStep === 'medications') {
       const updatedMedicationEntries = formData.medicationEntries.map((entry: any) => ({
         ...entry,
         taken: parsed.medicationTaken,
@@ -154,16 +237,80 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     }
 
     // Update lifestyle factors
-    if (parsed.lifestyleFactor) {
+    if (parsed.lifestyleValue && currentLifestyleFactor && currentStep === 'lifestyle') {
       const updatedFactors = {
         ...formData.factors,
-        [parsed.lifestyleFactor.type]: parsed.lifestyleFactor.value as SeverityLevel
+        [currentLifestyleFactor]: parsed.lifestyleValue as SeverityLevel
       };
       updates.factors = updatedFactors;
     }
 
     if (Object.keys(updates).length > 0) {
       onUpdateFormData(updates);
+    }
+  };
+
+  const getNextQuestion = (): string => {
+    if (!user) return "I need user information to continue.";
+
+    switch (currentStep) {
+      case 'greeting':
+        return "I'm ready to help you with your daily check-in! Let's start by talking about your skin conditions. Are you ready to begin?";
+      
+      case 'conditions':
+        const currentCondition = user.conditions[currentConditionIndex];
+        if (currentCondition) {
+          return `How is your ${currentCondition.name} feeling today? Please describe it in your own words or rate it from 1-5 (1 = minimal, 5 = extreme).`;
+        }
+        return "Let's move on to your medications.";
+      
+      case 'medications':
+        return "Did you take any of your prescribed medications today? Please answer yes or no.";
+      
+      case 'lifestyle':
+        if (!currentLifestyleFactor) {
+          setCurrentLifestyleFactor('stress');
+          return "Now let's talk about some lifestyle factors. How would you rate your stress level today from 1-5?";
+        } else if (currentLifestyleFactor === 'stress') {
+          setCurrentLifestyleFactor('sleep');
+          return "How was your sleep quality last night? Rate it from 1-5 or describe it.";
+        } else if (currentLifestyleFactor === 'sleep') {
+          setCurrentLifestyleFactor('water');
+          return "How's your water intake today? Rate it from 1-5.";
+        } else if (currentLifestyleFactor === 'water') {
+          setCurrentLifestyleFactor('diet');
+          return "How would you rate your diet quality today from 1-5?";
+        } else {
+          setCurrentStep('complete');
+          return "Excellent! I've helped you fill out most of your check-in. You can review everything and add any additional notes in the main form. Is there anything else you'd like to tell me about your skin today?";
+        }
+      
+      case 'complete':
+        return "Thank you for sharing! You can now review and complete your check-in using the main form. Have a great day!";
+      
+      default:
+        return "I'm not sure what to ask next. Please continue with the manual form.";
+    }
+  };
+
+  const handleStepProgression = (parsed: any) => {
+    if (currentStep === 'greeting') {
+      const lowerInput = inputValue.toLowerCase();
+      if (lowerInput.includes('yes') || lowerInput.includes('ready') || lowerInput.includes('sure') || lowerInput.includes('start')) {
+        setCurrentStep('conditions');
+        setCurrentConditionIndex(0);
+      }
+    } else if (currentStep === 'conditions' && parsed.severity) {
+      if (currentConditionIndex < user!.conditions.length - 1) {
+        setCurrentConditionIndex(currentConditionIndex + 1);
+      } else {
+        setCurrentStep('medications');
+      }
+    } else if (currentStep === 'medications' && parsed.medicationTaken !== undefined) {
+      setCurrentStep('lifestyle');
+      setCurrentLifestyleFactor('stress');
+    } else if (currentStep === 'lifestyle' && parsed.lifestyleValue) {
+      // Progression is handled in getNextQuestion
     }
   };
 
@@ -181,6 +328,13 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
         throw new Error('User not found');
       }
 
+      // Parse the user input locally first
+      const parsed = parseUserResponseLocal(userInput);
+      updateFormDataFromParsedResponse(parsed);
+      
+      // Handle step progression
+      handleStepProgression(parsed);
+
       const context = {
         userName: user.name,
         conditions: user.conditions,
@@ -188,19 +342,48 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
         currentFormData: formData
       };
 
+      // Create a focused prompt for the current step
+      let contextualPrompt = userInput;
+      if (currentStep === 'conditions') {
+        const currentCondition = user.conditions[currentConditionIndex];
+        contextualPrompt = `User is describing their ${currentCondition?.name}: "${userInput}"`;
+      } else if (currentStep === 'medications') {
+        contextualPrompt = `User is answering about medication adherence: "${userInput}"`;
+      } else if (currentStep === 'lifestyle') {
+        contextualPrompt = `User is rating their ${currentLifestyleFactor}: "${userInput}"`;
+      }
+
       // Add user message to chat history
       const newChatHistory: ChatMessage[] = [
         ...chatHistory,
-        { role: 'user', content: userInput }
+        { role: 'user', content: contextualPrompt }
       ];
 
       // Get AI response
       const aiResponse = await openaiService.sendMessage(newChatHistory, context);
-      addAIMessage(aiResponse);
+      
+      // If the AI response contains multiple questions, extract just the acknowledgment
+      const responseLines = aiResponse.split('\n').filter(line => line.trim());
+      let cleanResponse = aiResponse;
+      
+      // If response has multiple sentences, take the first one or two that acknowledge the user
+      if (responseLines.length > 1 || aiResponse.includes('?')) {
+        const sentences = aiResponse.split(/[.!?]+/).filter(s => s.trim());
+        if (sentences.length > 1) {
+          // Take the first sentence that acknowledges the user's input
+          cleanResponse = sentences[0].trim() + '.';
+        }
+      }
+      
+      addAIMessage(cleanResponse);
 
-      // Parse user input for form data
-      const parsed = await openaiService.parseUserResponse(userInput, context, currentTopic);
-      updateFormDataFromParsedResponse(parsed);
+      // Add the next question after a short delay
+      setTimeout(() => {
+        const nextQuestion = getNextQuestion();
+        if (nextQuestion && nextQuestion !== cleanResponse) {
+          addAIMessage(nextQuestion);
+        }
+      }, 1500);
 
       // Update chat history with AI response
       setChatHistory([
@@ -228,6 +411,9 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     setError(null);
     setMessages([]);
     setChatHistory([]);
+    setCurrentStep('greeting');
+    setCurrentConditionIndex(0);
+    setCurrentLifestyleFactor(null);
     initializeConversation();
   };
 
