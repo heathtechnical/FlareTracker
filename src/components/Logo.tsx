@@ -112,7 +112,7 @@ const Logo: React.FC<LogoProps> = ({
   );
 
   const LogoText = () => (
-    <span className={`${textSizeClasses[size]} font-bold bg-gradient-to-r from-primary-500 via-secondary-500 to-accent-500 bg-clip-text text-transparent`}>
+    <span className={`${textSizeClasses[size]} font-bold text-primary-500`}>
       Skin Logger
     </span>
   );

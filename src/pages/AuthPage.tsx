@@ -71,7 +71,7 @@ const AuthPage: React.FC = () => {
                                error?.includes('Project not found');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-primary-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Logo and Header */}
         <div className="text-center mb-8">
@@ -242,7 +242,7 @@ const AuthPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg hover:from-primary-600 hover:to-secondary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center px-4 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <Loader className="animate-spin mr-2" size={20} />

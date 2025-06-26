@@ -79,7 +79,7 @@ const DashboardTimeline: React.FC = () => {
         {!todayCheckIn && (
           <Link 
             to="/check-in" 
-            className="mt-4 md:mt-0 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 text-white px-4 py-2 rounded-lg flex items-center transition-all duration-200"
+            className="mt-4 md:mt-0 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center transition-all duration-200"
           >
             <Calendar size={18} className="mr-2" />
             Complete Today's Check-In
