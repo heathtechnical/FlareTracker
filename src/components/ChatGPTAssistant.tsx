@@ -33,6 +33,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [conversationStarted, setConversationStarted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -59,32 +60,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
       timestamp: new Date()
     };
     
-    setMessages(prev => {
-      // Check for duplicate system messages
-      if (type === 'system') {
-        const hasDuplicate = prev.some(msg => 
-          msg.type === 'system' && 
-          msg.content === content &&
-          Date.now() - msg.timestamp.getTime() < 2000 // Within 2 seconds
-        );
-        if (hasDuplicate) {
-          return prev; // Don't add duplicate
-        }
-      }
-      return [...prev, newMessage];
-    });
-  };
-
-  const addAIMessage = (content: string) => {
-    addMessage('ai', content);
-  };
-
-  const addUserMessage = (content: string) => {
-    addMessage('user', content);
-  };
-
-  const addSystemMessage = (content: string) => {
-    addMessage('system', content);
+    setMessages(prev => [...prev, newMessage]);
   };
 
   const checkOpenAIConnection = async (): Promise<boolean> => {
@@ -136,11 +112,10 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
       return;
     }
 
-    setIsLoading(true);
     setConnectionStatus('connecting');
     
     // Single connection message
-    addSystemMessage('🔗 Connecting to ChatGPT...');
+    addMessage('system', '🔗 Connecting to ChatGPT...');
 
     try {
       // Test OpenAI connection first
@@ -148,27 +123,39 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
       
       if (!isConnected) {
         setConnectionStatus('error');
-        addSystemMessage('❌ Failed to connect to ChatGPT');
+        addMessage('system', '❌ Failed to connect to ChatGPT');
         return;
       }
 
       setConnectionStatus('connected');
       
       // Single success message
-      addSystemMessage('✅ Connected to ChatGPT successfully!');
+      addMessage('system', '✅ Connected to ChatGPT successfully!');
 
-      // Start with greeting after a delay
+      // Start conversation immediately without waiting for user
       setTimeout(() => {
-        addAIMessage("Hi! I'm here to help you with your daily skin check-in. Are you ready to get started?");
-      }, 1500);
+        startConversation();
+      }, 1000);
 
     } catch (error: any) {
       console.error('Failed to initialize conversation:', error);
       setConnectionStatus('error');
       setError(`Failed to start conversation: ${error.message || 'Unknown error'}`);
-      addSystemMessage('❌ Failed to initialize conversation');
-    } finally {
-      setIsLoading(false);
+      addMessage('system', '❌ Failed to initialize conversation');
+    }
+  };
+
+  const startConversation = () => {
+    if (conversationStarted) return; // Prevent duplicate starts
+    
+    setConversationStarted(true);
+    
+    // Start with the first question immediately
+    if (user && user.conditions.length > 0) {
+      setCurrentStep('conditions');
+      addMessage('ai', `Hi! I'm here to help you with your daily skin check-in. Let's start with your ${user.conditions[0].name}. How is it feeling today? You can describe it in your own words or rate it from 1-5 (1 = minimal, 5 = extreme).`);
+    } else {
+      addMessage('ai', "Hi! I'm here to help you with your daily skin check-in. I notice you don't have any conditions set up yet. You'll need to add some conditions first before we can continue.");
     }
   };
 
@@ -177,15 +164,9 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     symptoms?: string[]; 
     medicationTaken?: boolean;
     lifestyleValue?: number;
-    isReady?: boolean;
   } => {
     const lowerInput = input.toLowerCase();
     const result: any = {};
-
-    // Parse readiness for greeting
-    if (lowerInput.includes('yes') || lowerInput.includes('ready') || lowerInput.includes('sure') || lowerInput.includes('ok')) {
-      result.isReady = true;
-    }
 
     // Parse severity
     const severityKeywords = {
@@ -329,14 +310,6 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     if (!user) return null;
 
     switch (currentStep) {
-      case 'greeting':
-        if (user.conditions.length > 0) {
-          setCurrentStep('conditions');
-          return `Perfect! Let's start with your ${user.conditions[0].name}. How is it feeling today? You can describe it in your own words or rate it from 1-5 (1 = minimal, 5 = extreme).`;
-        } else {
-          return "I notice you don't have any conditions set up yet. You'll need to add some conditions first before we can continue with the check-in.";
-        }
-      
       case 'conditions':
         if (currentConditionIndex < user.conditions.length - 1) {
           const nextCondition = user.conditions[currentConditionIndex + 1];
@@ -375,35 +348,11 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     }
   };
 
-  const processNextStep = (parsed: any) => {
-    let shouldProgress = false;
-
-    if (currentStep === 'greeting' && parsed.isReady) {
-      shouldProgress = true;
-    } else if (currentStep === 'conditions' && parsed.severity) {
-      shouldProgress = true;
-    } else if (currentStep === 'medications' && parsed.medicationTaken !== undefined) {
-      shouldProgress = true;
-    } else if (currentStep === 'lifestyle' && parsed.lifestyleValue) {
-      shouldProgress = true;
-    }
-
-    if (shouldProgress) {
-      // Wait for AI response to complete, then ask next question
-      setTimeout(() => {
-        const nextQuestion = getNextQuestion();
-        if (nextQuestion) {
-          addAIMessage(nextQuestion);
-        }
-      }, 2000); // Increased delay to ensure AI response is complete
-    }
-  };
-
   const handleUserInput = async () => {
     if (!inputValue.trim() || isLoading || connectionStatus !== 'connected') return;
 
     const userInput = inputValue.trim();
-    addUserMessage(userInput);
+    addMessage('user', userInput);
     setInputValue('');
     setIsLoading(true);
     setError(null);
@@ -434,8 +383,6 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
         contextualPrompt = `User answered about medication adherence: "${userInput}". Please acknowledge briefly without asking questions.`;
       } else if (currentStep === 'lifestyle') {
         contextualPrompt = `User rated their ${currentLifestyleFactor}: "${userInput}". Please acknowledge briefly without asking questions.`;
-      } else if (currentStep === 'greeting') {
-        contextualPrompt = `User responded to greeting: "${userInput}". Please acknowledge briefly without asking questions.`;
       }
 
       // Add user message to chat history
@@ -450,7 +397,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
       // Clean the response to ensure it's just an acknowledgment
       const cleanResponse = aiResponse.split('.')[0] + '.'; // Take only first sentence
       
-      addAIMessage(cleanResponse);
+      addMessage('ai', cleanResponse);
 
       // Update chat history with AI response
       setChatHistory([
@@ -458,13 +405,31 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
         { role: 'assistant', content: cleanResponse }
       ]);
 
-      // Process next step after AI response
-      processNextStep(parsed);
+      // Determine if we should ask the next question
+      let shouldProgress = false;
+
+      if (currentStep === 'conditions' && parsed.severity) {
+        shouldProgress = true;
+      } else if (currentStep === 'medications' && parsed.medicationTaken !== undefined) {
+        shouldProgress = true;
+      } else if (currentStep === 'lifestyle' && parsed.lifestyleValue) {
+        shouldProgress = true;
+      }
+
+      // Ask next question after a delay
+      if (shouldProgress) {
+        setTimeout(() => {
+          const nextQuestion = getNextQuestion();
+          if (nextQuestion) {
+            addMessage('ai', nextQuestion);
+          }
+        }, 2000);
+      }
 
     } catch (error: any) {
       console.error('Error in conversation:', error);
       setError(`ChatGPT error: ${error.message || 'Unknown error'}`);
-      addSystemMessage(`❌ Error: ${error.message || 'Failed to get response from ChatGPT'}`);
+      addMessage('system', `❌ Error: ${error.message || 'Failed to get response from ChatGPT'}`);
     } finally {
       setIsLoading(false);
     }
@@ -486,6 +451,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     setCurrentLifestyleFactor(null);
     setConnectionStatus('connecting');
     setIsInitialized(false);
+    setConversationStarted(false);
   };
 
   // Show error screen if connection failed

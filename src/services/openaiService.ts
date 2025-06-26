@@ -56,6 +56,7 @@ CRITICAL RULES - FOLLOW EXACTLY:
 3. ONLY provide acknowledgment and support
 4. Keep responses to 1 sentence maximum
 5. Be warm and understanding
+6. NEVER use question marks or question words
 
 USER CONTEXT:
 - User's name: ${context.userName}
@@ -66,15 +67,16 @@ PERFECT RESPONSE EXAMPLES:
 - "I understand, that sounds challenging."
 - "Got it, I've noted that information."
 - "I'm sorry you're experiencing that."
-- "That's great to hear!"
+- "That's great to hear."
+- "I appreciate you letting me know."
 
-FORBIDDEN RESPONSES (NEVER DO THIS):
-- "Thank you for sharing that. How are your symptoms?" (NO QUESTIONS!)
-- "I understand. What about your medications?" (NO QUESTIONS!)
-- "Got it. Can you tell me..." (NO QUESTIONS!)
-- Any response with "?" or question words
+ABSOLUTELY FORBIDDEN (NEVER DO THIS):
+- Any response with "?" 
+- Any response with question words (how, what, when, where, why, can, could, would, do, did, are, is, tell me, let me know)
+- Multiple sentences
+- Follow-up questions of any kind
 
-REMEMBER: ACKNOWLEDGMENT ONLY. NO QUESTIONS. EVER.`;
+REMEMBER: ACKNOWLEDGMENT ONLY. NO QUESTIONS. EVER. ONE SENTENCE MAXIMUM.`;
   }
 
   async sendMessage(
@@ -106,10 +108,11 @@ REMEMBER: ACKNOWLEDGMENT ONLY. NO QUESTIONS. EVER.`;
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [systemMessage, ...messages],
-        max_tokens: 50, // Very short responses only
-        temperature: 0.3, // Lower temperature for more consistent responses
-        presence_penalty: 0.2,
-        frequency_penalty: 0.3
+        max_tokens: 30, // Even shorter responses
+        temperature: 0.1, // Very low temperature for consistent responses
+        presence_penalty: 0.5,
+        frequency_penalty: 0.5,
+        stop: ['?', '\n'] // Stop at question marks or newlines
       });
 
       console.log('OpenAI response received:', {
@@ -123,8 +126,8 @@ REMEMBER: ACKNOWLEDGMENT ONLY. NO QUESTIONS. EVER.`;
         throw new Error('No response content received from OpenAI');
       }
 
-      // Aggressively clean the response
-      const cleanedContent = this.aggressivelyCleanResponse(content);
+      // Ultra-aggressive cleaning
+      const cleanedContent = this.ultraCleanResponse(content);
 
       return cleanedContent;
     } catch (error: any) {
@@ -160,33 +163,55 @@ REMEMBER: ACKNOWLEDGMENT ONLY. NO QUESTIONS. EVER.`;
     }
   }
 
-  private aggressivelyCleanResponse(response: string): string {
+  private ultraCleanResponse(response: string): string {
     // Remove any text after question marks
     let cleaned = response.split('?')[0];
     
-    // Split into sentences and filter aggressively
+    // Remove any text after newlines
+    cleaned = cleaned.split('\n')[0];
+    
+    // Split into sentences and take only the first one
     const sentences = cleaned.split(/[.!]+/).filter(s => s.trim());
     
-    // Remove sentences with question words or patterns
-    const questionWords = ['how', 'what', 'when', 'where', 'why', 'can you', 'could you', 'would you', 'do you', 'did you', 'are you', 'is there', 'tell me', 'let me know', 'would like', 'anything else'];
-    
-    const safeSentences = sentences.filter(sentence => {
-      const lowerSentence = sentence.toLowerCase().trim();
-      return !questionWords.some(word => lowerSentence.includes(word));
-    });
-
-    if (safeSentences.length > 0) {
-      // Take only the first safe sentence
-      return safeSentences[0].trim() + '.';
+    if (sentences.length === 0) {
+      return this.getFallbackResponse();
     }
+    
+    let firstSentence = sentences[0].trim();
+    
+    // Ultra-aggressive question word filtering
+    const questionWords = [
+      'how', 'what', 'when', 'where', 'why', 'which', 'who', 'whom', 'whose',
+      'can you', 'could you', 'would you', 'will you', 'should you',
+      'do you', 'did you', 'are you', 'is there', 'have you',
+      'tell me', 'let me know', 'would like', 'anything else',
+      'next', 'now', 'also', 'additionally', 'furthermore'
+    ];
+    
+    const lowerSentence = firstSentence.toLowerCase();
+    
+    // If it contains any question words, use fallback
+    if (questionWords.some(word => lowerSentence.includes(word))) {
+      return this.getFallbackResponse();
+    }
+    
+    // Ensure it ends with a period
+    if (!firstSentence.endsWith('.') && !firstSentence.endsWith('!')) {
+      firstSentence += '.';
+    }
+    
+    return firstSentence;
+  }
 
-    // Ultimate fallback - guaranteed safe responses
+  private getFallbackResponse(): string {
     const fallbackResponses = [
       "Thank you for sharing that.",
       "I've noted that information.",
       "Got it, thank you.",
       "I understand.",
-      "Thank you for letting me know."
+      "Thank you for letting me know.",
+      "I appreciate you sharing that.",
+      "That's helpful information."
     ];
 
     return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
