@@ -150,7 +150,8 @@ MISSING SEVERITY RATINGS FOR: ${missingConditions.join(', ') || 'None - all cond
 
 YOUR TASKS:
 1. Have a natural conversation about the user's skin health today
-2. MANDATORY: Get severity rating (1-5 scale) for each condition:
+2. MANDATORY: Get severity rating (1-5 scale) for each condition, this should be taken from the users
+  responses not asked unless it can not be determined
    - 1 = minimal, 2 = mild, 3 = moderate, 4 = severe, 5 = extreme
 3. OPTIONAL: Pick up from conversation naturally (don't explicitly ask unless mentioned):
    - Symptoms (itchiness, redness, dryness, flaking, pain, swelling, burning, bleeding)
