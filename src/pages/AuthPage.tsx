@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Eye, EyeOff, CheckCircle, XCircle, Loader } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, CheckCircle, XCircle, Loader, AlertTriangle, Info } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import Logo from '../components/Logo';
 
@@ -51,16 +51,8 @@ const AuthPage: React.FC = () => {
         setSuccess('Welcome back!');
       }
     } catch (err: any) {
-      if (err.message.includes('Invalid login credentials')) {
-        setError('Invalid email or password. Please check your credentials or create a new account.');
-      } else if (err.message.includes('User already registered')) {
-        setError('This email is already registered. Please sign in instead.');
-        setMode('signin');
-      } else if (err.message.includes('Email not confirmed')) {
-        setError('Please check your email and click the confirmation link, then try signing in again.');
-      } else {
-        setError(`Authentication failed: ${err.message}`);
-      }
+      console.error('Authentication error:', err);
+      setError(err.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -71,6 +63,12 @@ const AuthPage: React.FC = () => {
     setError(null);
     setSuccess(null);
   };
+
+  // Check if this looks like a configuration issue
+  const isConfigurationError = error?.includes('Supabase configuration') || 
+                               error?.includes('Unable to connect to Supabase') ||
+                               error?.includes('Invalid API key') ||
+                               error?.includes('Project not found');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center p-4">
@@ -90,9 +88,33 @@ const AuthPage: React.FC = () => {
         <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 p-8">
           {/* Status Messages */}
           {error && (
-            <div className="mb-6 bg-error-50 border border-error-200 rounded-lg p-4 flex items-center">
-              <XCircle className="text-error-500 mr-3 flex-shrink-0\" size={20} />
-              <span className="text-error-700 text-sm">{error}</span>
+            <div className={`mb-6 border rounded-lg p-4 flex items-start ${
+              isConfigurationError 
+                ? 'bg-warning-50 border-warning-200' 
+                : 'bg-error-50 border-error-200'
+            }`}>
+              {isConfigurationError ? (
+                <AlertTriangle className="text-warning-500 mr-3 flex-shrink-0 mt-0.5" size={20} />
+              ) : (
+                <XCircle className="text-error-500 mr-3 flex-shrink-0 mt-0.5" size={20} />
+              )}
+              <div>
+                <span className={`text-sm ${
+                  isConfigurationError ? 'text-warning-700' : 'text-error-700'
+                }`}>
+                  {error}
+                </span>
+                {isConfigurationError && (
+                  <div className="mt-2 text-xs text-warning-600">
+                    <p>Please ensure:</p>
+                    <ul className="list-disc list-inside mt-1 space-y-1">
+                      <li>Your .env file contains valid Supabase credentials</li>
+                      <li>Your Supabase project is active and accessible</li>
+                      <li>Your internet connection is stable</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -100,6 +122,17 @@ const AuthPage: React.FC = () => {
             <div className="mb-6 bg-success-50 border border-success-200 rounded-lg p-4 flex items-center">
               <CheckCircle className="text-success-500 mr-3 flex-shrink-0" size={20} />
               <span className="text-success-700 text-sm">{success}</span>
+            </div>
+          )}
+
+          {/* First Time User Info */}
+          {mode === 'signin' && !error && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start">
+              <Info className="text-blue-500 mr-3 flex-shrink-0 mt-0.5" size={20} />
+              <div className="text-sm text-blue-700">
+                <p className="font-medium mb-1">First time here?</p>
+                <p>If you don't have an account yet, click "Sign Up" to create one. Make sure to use a valid email address.</p>
+              </div>
             </div>
           )}
 
@@ -212,7 +245,7 @@ const AuthPage: React.FC = () => {
               className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 text-white rounded-lg hover:from-primary-600 hover:to-secondary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
-                <Loader className="animate-spin mr-2\" size={20} />
+                <Loader className="animate-spin mr-2" size={20} />
               ) : (
                 <Logo variant="icon" size="sm" className="mr-2" />
               )}

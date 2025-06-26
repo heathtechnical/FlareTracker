@@ -26,9 +26,14 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
 export const handleSupabaseError = (error: any) => {
   console.error('Supabase error:', error)
   
-  // Provide more specific error messages
-  if (error.message?.includes('Invalid login credentials')) {
-    throw new Error('Invalid email or password. Please check your credentials or create a new account.')
+  // Check for network connectivity issues
+  if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+    throw new Error('Unable to connect to Supabase. Please check your internet connection and verify your Supabase URL is correct.')
+  }
+  
+  // Handle authentication-specific errors
+  if (error.message?.includes('Invalid login credentials') || error.code === 'invalid_credentials') {
+    throw new Error('Invalid email or password. Please check your credentials or create a new account if you haven\'t registered yet.')
   }
   
   if (error.message?.includes('Email not confirmed')) {
@@ -39,8 +44,13 @@ export const handleSupabaseError = (error: any) => {
     throw new Error('This email is already registered. Please sign in instead.')
   }
   
-  if (error.message?.includes('Failed to fetch')) {
-    throw new Error('Unable to connect to authentication service. Please check your internet connection and Supabase configuration.')
+  if (error.message?.includes('Signup is disabled')) {
+    throw new Error('Account registration is currently disabled. Please contact support.')
+  }
+  
+  // Handle configuration errors
+  if (error.message?.includes('Invalid API key') || error.message?.includes('Project not found')) {
+    throw new Error('Supabase configuration error. Please verify your project URL and API key are correct.')
   }
   
   throw new Error(error.message || 'An unexpected error occurred')

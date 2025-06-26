@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { supabase, handleSupabaseError } from '../lib/supabase'
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null)
@@ -10,6 +10,9 @@ export const useAuth = () => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
+      setLoading(false)
+    }).catch((error) => {
+      console.error('Error getting session:', error)
       setLoading(false)
     })
 
@@ -25,33 +28,53 @@ export const useAuth = () => {
   }, [])
 
   const signUp = async (email: string, password: string, name: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name
+          }
         }
+      })
+      
+      if (error) {
+        handleSupabaseError(error)
       }
-    })
-    
-    if (error) throw error
-    return data
+      
+      return data
+    } catch (error) {
+      handleSupabaseError(error)
+    }
   }
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+      
+      if (error) {
+        handleSupabaseError(error)
+      }
+      
+      return data
+    } catch (error) {
+      handleSupabaseError(error)
+    }
   }
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        handleSupabaseError(error)
+      }
+    } catch (error) {
+      handleSupabaseError(error)
+    }
   }
 
   return {
