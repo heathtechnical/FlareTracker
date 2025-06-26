@@ -12,7 +12,7 @@ if (apiKey === 'PLACEHOLDER') {
 }
 
 // Initialize OpenAI client
-const openai = apiKey && apiKey !== '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' ? new OpenAI({
+const openai = apiKey ? new OpenAI({
   apiKey: apiKey,
   dangerouslyAllowBrowser: true // Note: In production, you'd want to use a backend proxy
 }) : null;
