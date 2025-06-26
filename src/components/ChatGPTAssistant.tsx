@@ -31,7 +31,12 @@ export default function ChatGPTAssistant({
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [checkInComplete, setCheckInComplete] = useState(false);
-  const [collectedData, setCollectedData] = useState<any>({});
+  const [collectedData, setCollectedData] = useState<any>({
+    conditionEntries: {},
+    medicationEntries: {},
+    factors: {},
+    notes: ''
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -58,7 +63,7 @@ export default function ChatGPTAssistant({
         throw new Error('OpenAI API key format is invalid');
       }
       
-      if (apiKey === 'PLACEHOLDER') {
+      if (apiKey === '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') {
         throw new Error('OpenAI API key is set to placeholder value');
       }
       
@@ -121,112 +126,68 @@ Please describe how your skin is today - you can mention severity, symptoms, or 
     }
   };
 
-  const parseUserResponse = (response: string, context: any) => {
-    const lowerResponse = response.toLowerCase();
-    const updatedData = { ...collectedData };
-    let dataUpdated = false;
-
-    // Parse severity mentions
-    const severityKeywords = {
-      1: ['minimal', 'very mild', 'barely noticeable', 'tiny bit'],
-      2: ['mild', 'slight', 'little bit', 'not too bad'],
-      3: ['moderate', 'medium', 'okay', 'average', 'noticeable'],
-      4: ['severe', 'bad', 'quite bad', 'really bothering', 'painful'],
-      5: ['extreme', 'terrible', 'worst', 'unbearable', 'very severe']
-    };
-
-    // Check for severity ratings
-    for (const [severity, keywords] of Object.entries(severityKeywords)) {
-      if (keywords.some(keyword => lowerResponse.includes(keyword))) {
-        if (!updatedData.conditionSeverities) updatedData.conditionSeverities = {};
-        // For simplicity, apply to first condition - could be enhanced to parse specific conditions
-        if (user?.conditions?.[0]) {
-          updatedData.conditionSeverities[user.conditions[0].id] = parseInt(severity);
-          dataUpdated = true;
-        }
-      }
-    }
-
-    // Parse numeric severity (1-5)
-    const numericMatch = response.match(/\b([1-5])\b/);
-    if (numericMatch && user?.conditions?.[0]) {
-      if (!updatedData.conditionSeverities) updatedData.conditionSeverities = {};
-      updatedData.conditionSeverities[user.conditions[0].id] = parseInt(numericMatch[1]);
-      dataUpdated = true;
-    }
-
-    // Parse symptoms
-    const symptomKeywords = ['itchy', 'red', 'dry', 'flaky', 'painful', 'swollen', 'burning', 'bleeding'];
-    const foundSymptoms: string[] = [];
+  const createSystemPrompt = () => {
+    const conditionsList = user?.conditions?.map(c => `- ${c.name} (ID: ${c.id})`).join('\n') || '';
+    const medicationsList = user?.medications?.map(m => `- ${m.name} (ID: ${m.id}, Frequency: ${m.frequency})`).join('\n') || '';
     
-    symptomKeywords.forEach(symptom => {
-      if (lowerResponse.includes(symptom)) {
-        foundSymptoms.push(symptom.charAt(0).toUpperCase() + symptom.slice(1) + 'ness');
-      }
-    });
+    return `You are a helpful AI assistant for a skin health tracking app. Your job is to collect check-in information through natural conversation and return structured JSON data.
 
-    if (foundSymptoms.length > 0) {
-      if (!updatedData.conditionSymptoms) updatedData.conditionSymptoms = {};
-      if (user?.conditions?.[0]) {
-        updatedData.conditionSymptoms[user.conditions[0].id] = foundSymptoms;
-        dataUpdated = true;
-      }
+USER'S CONDITIONS:
+${conditionsList}
+
+USER'S MEDICATIONS:
+${medicationsList}
+
+CURRENT COLLECTED DATA:
+${JSON.stringify(collectedData, null, 2)}
+
+YOUR TASKS:
+1. Have a natural conversation about the user's skin health today
+2. Collect information about:
+   - Severity for each condition (1-5 scale: 1=minimal, 2=mild, 3=moderate, 4=severe, 5=extreme)
+   - Symptoms for each condition (itchiness, redness, dryness, flaking, pain, swelling, burning, bleeding)
+   - Whether medications were taken
+   - Lifestyle factors (stress, sleep, water intake, diet quality - all 1-5 scale)
+   - Any additional notes
+
+3. When you have enough information, provide a summary and ask for confirmation
+
+4. CRITICAL: At the end of each response, include a JSON block with the collected data in this exact format:
+\`\`\`json
+{
+  "conditionEntries": {
+    "condition-id": {
+      "severity": 1-5,
+      "symptoms": ["symptom1", "symptom2"],
+      "notes": "any specific notes"
     }
-
-    // Parse medication mentions
-    if (lowerResponse.includes('took') || lowerResponse.includes('applied') || lowerResponse.includes('used')) {
-      if (!updatedData.medicationsTaken) updatedData.medicationsTaken = {};
-      user?.medications?.forEach(med => {
-        if (lowerResponse.includes(med.name.toLowerCase())) {
-          updatedData.medicationsTaken[med.id] = true;
-          dataUpdated = true;
-        }
-      });
+  },
+  "medicationEntries": {
+    "medication-id": {
+      "taken": true/false,
+      "timesTaken": 1,
+      "skippedReason": "reason if not taken"
     }
+  },
+  "factors": {
+    "stress": 1-5,
+    "sleep": 1-5,
+    "water": 1-5,
+    "diet": 1-5,
+    "weather": "description"
+  },
+  "notes": "general notes",
+  "isComplete": true/false
+}
+\`\`\`
 
-    if (dataUpdated) {
-      setCollectedData(updatedData);
-    }
-
-    return updatedData;
-  };
-
-  const generateSummary = (data: any) => {
-    const parts: string[] = [];
-    
-    if (data.conditionSeverities) {
-      Object.entries(data.conditionSeverities).forEach(([conditionId, severity]) => {
-        const condition = user?.conditions?.find(c => c.id === conditionId);
-        if (condition) {
-          const severityLabels = ['', 'minimal', 'mild', 'moderate', 'severe', 'extreme'];
-          parts.push(`${condition.name}: ${severityLabels[severity as number]} (${severity}/5)`);
-        }
-      });
-    }
-
-    if (data.conditionSymptoms) {
-      Object.entries(data.conditionSymptoms).forEach(([conditionId, symptoms]) => {
-        const condition = user?.conditions?.find(c => c.id === conditionId);
-        if (condition && Array.isArray(symptoms) && symptoms.length > 0) {
-          parts.push(`${condition.name} symptoms: ${symptoms.join(', ')}`);
-        }
-      });
-    }
-
-    if (data.medicationsTaken) {
-      const takenMeds = Object.entries(data.medicationsTaken)
-        .filter(([_, taken]) => taken)
-        .map(([medId, _]) => user?.medications?.find(m => m.id === medId)?.name)
-        .filter(Boolean);
-      
-      if (takenMeds.length > 0) {
-        parts.push(`Medications taken: ${takenMeds.join(', ')}`);
-      }
-    }
-
-    return parts.length > 0 
-      ? `Here's what I've captured from our conversation:\n\n${parts.join('\n')}\n\nDoes this look correct? If so, I can save your check-in now!`
-      : "I haven't captured enough information yet. Could you tell me more about your skin condition severity and any symptoms you're experiencing?";
+IMPORTANT RULES:
+- Only include data that the user has actually provided
+- Don't make assumptions or fill in missing data
+- Set "isComplete": true only when you have severity ratings for all conditions
+- Be conversational and supportive, not clinical
+- Ask follow-up questions to get missing information
+- When complete, ask for confirmation before setting isComplete to true`;
   };
 
   const sendMessage = async () => {
@@ -245,91 +206,121 @@ Please describe how your skin is today - you can mention severity, symptoms, or 
     setIsLoading(true);
 
     try {
-      // Parse user response for data
-      const updatedData = parseUserResponse(currentInput, collectedData);
-      
-      // Check if we have enough data to complete check-in
-      const hasConditionData = updatedData.conditionSeverities && 
-        Object.keys(updatedData.conditionSeverities).length > 0;
-      
-      let responseContent: string;
-      
-      if (hasConditionData && !checkInComplete) {
-        // We have enough data, show summary
-        responseContent = generateSummary(updatedData);
-        setCheckInComplete(true);
-      } else if (checkInComplete) {
-        // User is responding to summary
-        if (currentInput.toLowerCase().includes('yes') || 
-            currentInput.toLowerCase().includes('correct') ||
-            currentInput.toLowerCase().includes('save')) {
-          responseContent = "Perfect! Your check-in data is ready to be saved. Click the 'Save Check-in' button below to complete your daily check-in.";
-        } else {
-          responseContent = "Let me know what needs to be corrected, and I'll update your check-in data accordingly.";
-          setCheckInComplete(false);
+      // Prepare context for the AI
+      const checkInContext = {
+        userName: user?.name || 'User',
+        conditions: user?.conditions || [],
+        medications: user?.medications || [],
+        currentFormData: collectedData
+      };
+
+      // Convert messages to the format expected by openaiService
+      const chatMessages = messages.slice(-5).map(msg => ({
+        role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
+        content: msg.content
+      }));
+
+      // Add the current user message
+      chatMessages.push({
+        role: 'user' as const,
+        content: currentInput
+      });
+
+      // Add system message with current context
+      const systemMessage = {
+        role: 'system' as const,
+        content: createSystemPrompt()
+      };
+
+      const response = await openaiService.sendMessage(
+        [systemMessage, ...chatMessages],
+        checkInContext
+      );
+
+      // Extract JSON data from response
+      const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
+      if (jsonMatch) {
+        try {
+          const extractedData = JSON.parse(jsonMatch[1]);
+          
+          // Update collected data
+          setCollectedData(prev => ({
+            ...prev,
+            ...extractedData
+          }));
+
+          // Check if check-in is complete
+          if (extractedData.isComplete) {
+            setCheckInComplete(true);
+          }
+
+          // Update form data
+          if (onUpdateFormData) {
+            const formUpdate: any = {};
+            
+            // Update condition entries
+            if (extractedData.conditionEntries) {
+              formUpdate.conditionEntries = formData?.conditionEntries?.map((entry: any) => {
+                const collectedEntry = extractedData.conditionEntries[entry.conditionId];
+                if (collectedEntry) {
+                  return {
+                    ...entry,
+                    severity: collectedEntry.severity || entry.severity,
+                    symptoms: collectedEntry.symptoms || entry.symptoms,
+                    notes: collectedEntry.notes || entry.notes
+                  };
+                }
+                return entry;
+              }) || [];
+            }
+
+            // Update medication entries
+            if (extractedData.medicationEntries) {
+              formUpdate.medicationEntries = formData?.medicationEntries?.map((entry: any) => {
+                const collectedEntry = extractedData.medicationEntries[entry.medicationId];
+                if (collectedEntry) {
+                  return {
+                    ...entry,
+                    taken: collectedEntry.taken !== undefined ? collectedEntry.taken : entry.taken,
+                    timesTaken: collectedEntry.timesTaken || entry.timesTaken,
+                    skippedReason: collectedEntry.skippedReason || entry.skippedReason
+                  };
+                }
+                return entry;
+              }) || [];
+            }
+
+            // Update factors
+            if (extractedData.factors) {
+              formUpdate.factors = {
+                ...formData?.factors,
+                ...extractedData.factors
+              };
+            }
+
+            // Update notes
+            if (extractedData.notes) {
+              formUpdate.notes = extractedData.notes;
+            }
+
+            onUpdateFormData(formUpdate);
+          }
+        } catch (parseError) {
+          console.error('Error parsing JSON from AI response:', parseError);
         }
-      } else {
-        // Need more information
-        const checkInContext = {
-          userName: user?.name || 'User',
-          conditions: user?.conditions || [],
-          medications: user?.medications || [],
-          currentFormData: updatedData
-        };
-
-        const chatMessages = messages.slice(-3).map(msg => ({
-          role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
-          content: msg.content
-        }));
-
-        chatMessages.push({
-          role: 'user' as const,
-          content: currentInput
-        });
-
-        responseContent = await openaiService.sendMessage(chatMessages, checkInContext);
       }
+
+      // Remove JSON block from display message
+      const displayMessage = response.replace(/```json\n[\s\S]*?\n```/, '').trim();
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: responseContent,
+        content: displayMessage,
         sender: 'assistant',
         timestamp: new Date(),
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-
-      // Update form data if we have collected data
-      if (Object.keys(updatedData).length > 0 && onUpdateFormData) {
-        const formUpdate: any = {};
-        
-        // Update condition entries
-        if (updatedData.conditionSeverities || updatedData.conditionSymptoms) {
-          formUpdate.conditionEntries = formData?.conditionEntries?.map((entry: any) => {
-            const newEntry = { ...entry };
-            
-            if (updatedData.conditionSeverities?.[entry.conditionId]) {
-              newEntry.severity = updatedData.conditionSeverities[entry.conditionId];
-            }
-            
-            if (updatedData.conditionSymptoms?.[entry.conditionId]) {
-              newEntry.symptoms = updatedData.conditionSymptoms[entry.conditionId];
-            }
-            
-            return newEntry;
-          }) || [];
-        }
-
-        // Update medication entries
-        if (updatedData.medicationsTaken) {
-          formUpdate.medicationEntries = formData?.medicationEntries?.map((entry: any) => ({
-            ...entry,
-            taken: updatedData.medicationsTaken[entry.medicationId] || entry.taken
-          })) || [];
-        }
-
-        onUpdateFormData(formUpdate);
-      }
 
     } catch (error) {
       console.error('Error sending message:', error);
