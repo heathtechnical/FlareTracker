@@ -38,6 +38,7 @@ export default function ChatGPTAssistant({
     notes: ''
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -50,6 +51,14 @@ export default function ChatGPTAssistant({
   useEffect(() => {
     initializeConversation();
   }, []);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [inputMessage]);
 
   const checkOpenAIConnection = async (): Promise<boolean> => {
     try {
@@ -156,7 +165,7 @@ YOUR TASK:
 1. Start a supportive, casual conversation to check in on how the user's skin has been today.
 2. Your primary goal is to gently **assess the severity (1–5 scale)** for **each listed condition** based on the user's responses. 
    - NEVER ask directly for a number.
-   - Instead, infer severity from what they say (e.g., “It’s flaring badly” might be a 4–5).
+   - Instead, infer severity from what they say (e.g., "It's flaring badly" might be a 4–5).
    - Use this scale internally:
      - 1 = minimal
      - 2 = mild
@@ -181,7 +190,7 @@ IMPORTANT RULES:
 - Assume medications were **not taken** unless the user says they were.
 - Include only what the user has actually said, EXCEPT:
    - It is OK to estimate severity ratings based on their descriptions — but document reasoning in your notes if needed.
-- Don’t fill optional fields unless prompted.
+- Don't fill optional fields unless prompted.
 - Never present the JSON data to the user.
 - At the end of each response, include a JSON block in this exact format:
 \`\`\`json
@@ -210,71 +219,6 @@ IMPORTANT RULES:
   "notes": "general notes",
   "isComplete": true/false
 }\`\`\``;
-    
-//     return `You are a helpful AI assistant for a skin health tracking app. Your job is to collect check-in information through natural conversation and return structured JSON data.
-
-// USER'S CONDITIONS:
-// ${conditionsList}
-
-// USER'S MEDICATIONS:
-// ${medicationsList}
-
-// CURRENT COLLECTED DATA:
-// ${JSON.stringify(collectedData, null, 2)}
-
-// MISSING SEVERITY RATINGS FOR: ${missingConditions.join(', ') || 'None - all conditions rated'}
-
-// YOUR TASKS:
-// 1. Have a natural conversation about the user's skin health today
-// 2. MANDATORY: Get severity rating (1-5 scale) for each condition, this should be taken from the users
-//   responses NEVER ask the user for a numeric severity rating
-//    - 1 = minimal, 2 = mild, 3 = moderate, 4 = severe, 5 = extreme
-// 3. OPTIONAL: Pick up from conversation naturally (don't explicitly ask unless mentioned):
-//    - Symptoms (itchiness, redness, dryness, flaking, pain, swelling, burning, bleeding)
-//    - Medication usage (assume NOT taken unless explicitly mentioned)
-//    - Lifestyle factors (stress, sleep, water, diet - 1-5 scale)
-//    - General notes
-
-// 4. When you have severity ratings for ALL conditions, provide a summary and set isComplete to true
-
-// CRITICAL: At the end of each response, include a JSON block with the collected data in this exact format:
-// \`\`\`json
-// {
-//   "conditionEntries": {
-//     "condition-id": {
-//       "severity": 1-5,
-//       "symptoms": ["symptom1", "symptom2"],
-//       "notes": "any specific notes"
-//     }
-//   },
-//   "medicationEntries": {
-//     "medication-id": {
-//       "taken": true/false,
-//       "timesTaken": 1,
-//       "skippedReason": "reason if not taken"
-//     }
-//   },
-//   "factors": {
-//     "stress": 1-5,
-//     "sleep": 1-5,
-//     "water": 1-5,
-//     "diet": 1-5,
-//     "weather": "description"
-//   },
-//   "notes": "general notes",
-//   "isComplete": true/false
-// }
-// \`\`\`
-
-// IMPORTANT RULES:
-// - ONLY include data that the user has actually provided in conversation, but it is ok to calculate a severity rating
-// - Don't ask about symptoms or medications unless the user brings them up
-// - Assume medications are NOT taken unless explicitly mentioned
-// - Focus conversation on calculating severity ratings for all conditions
-// - Ratings should be taken from the conversation, don't ask for a numeric rating unless required
-// - Be conversational and supportive, not clinical
-// - Only set "isComplete": true when you have severity ratings for ALL conditions
-// - Don't fill in optional data unless it has been provided`;
   };
 
   const sendMessage = async () => {
@@ -537,20 +481,26 @@ IMPORTANT RULES:
 
         {/* Input */}
         <div className="p-4 border-t border-gray-200">
-          <div className="flex space-x-2">
-            <input
-              type="text"
+          <div className="flex space-x-2 items-end">
+            <textarea
+              ref={textareaRef}
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={isConnected ? "How is your skin feeling today?" : "Connection error..."}
               disabled={!isConnected || isLoading}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              rows={1}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden min-h-[40px] max-h-[120px]"
+              style={{ 
+                height: 'auto',
+                minHeight: '40px',
+                maxHeight: '120px'
+              }}
             />
             <button
               onClick={sendMessage}
               disabled={!inputMessage.trim() || isLoading || !isConnected}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white p-2 rounded-lg transition-colors"
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white p-2 rounded-lg transition-colors flex-shrink-0"
               aria-label="Send message"
             >
               <Send className="w-4 h-4" />
