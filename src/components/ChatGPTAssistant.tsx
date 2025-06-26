@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Send, X, Bot, User } from 'lucide-react';
-import { generateHealthInsights } from '../services/openaiService';
+import { openaiService } from '../services/openaiService';
+import { useApp } from '../context/AppContext';
 
 interface Message {
   id: string;
@@ -10,16 +11,15 @@ interface Message {
 }
 
 interface ChatGPTAssistantProps {
-  userConditions?: string[];
-  recentSymptoms?: string[];
-  medications?: string[];
+  formData?: any;
+  onUpdateFormData?: (data: any) => void;
 }
 
 export default function ChatGPTAssistant({ 
-  userConditions = [], 
-  recentSymptoms = [], 
-  medications = [] 
+  formData,
+  onUpdateFormData
 }: ChatGPTAssistantProps) {
+  const { user } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -88,6 +88,7 @@ export default function ChatGPTAssistant({
       setIsConnected(true);
 
       // Create initial greeting message
+      const userConditions = user?.conditions || [];
       const greeting = `Hello! I'm your health assistant. I can help you understand your symptoms, provide general health information, and answer questions about your conditions${userConditions.length > 0 ? ` (${userConditions.join(', ')})` : ''}. 
 
 Please note that I'm not a substitute for professional medical advice. Always consult with your healthcare provider for medical decisions.
@@ -134,14 +135,18 @@ How can I help you today?`;
 
     try {
       // Prepare context for the AI
-      const context = {
-        conditions: userConditions,
-        symptoms: recentSymptoms,
-        medications: medications,
-        conversationHistory: messages.slice(-5), // Last 5 messages for context
+      const checkInContext = {
+        userName: user?.name || 'User',
+        conditions: user?.conditions || [],
+        medications: user?.medications || [],
+        formData: formData || {}
       };
 
-      const response = await generateHealthInsights(inputMessage.trim(), context);
+      const response = await openaiService.sendMessage(
+        inputMessage.trim(),
+        messages.slice(-5), // Last 5 messages for context
+        checkInContext
+      );
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
