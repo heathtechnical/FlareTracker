@@ -1,15 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import LineChart from '../components/LineChart';
-import TriggerAnalysisComponent from '../components/TriggerAnalysis';
-import { getTriggersForAllConditions } from '../utils/triggerAnalysis';
 import { format, subDays, parseISO, eachDayOfInterval } from 'date-fns';
 
 const Trends: React.FC = () => {
   const { user } = useApp();
   const [timeRange, setTimeRange] = useState<7 | 14 | 30 | 90>(7);
   const [showMedications, setShowMedications] = useState(true);
-  const [activeTab, setActiveTab] = useState<'charts' | 'triggers'>('charts');
   
   // Lifestyle factors controls
   const [selectedFactors, setSelectedFactors] = useState<{
@@ -23,12 +20,6 @@ const Trends: React.FC = () => {
     water: false,
     diet: false
   });
-  
-  // Get trigger insights for all conditions
-  const triggerInsights = useMemo(() => {
-    if (!user) return [];
-    return getTriggersForAllConditions(user.checkIns, user.conditions);
-  }, [user]);
   
   const chartData = useMemo(() => {
     if (!user) return [];
@@ -207,118 +198,85 @@ const Trends: React.FC = () => {
         <div>
           <h1 className="text-2xl font-semibold text-gray-800">Trends & Analysis</h1>
           <p className="text-gray-600">
-            Advanced analytics to understand your skin health patterns
+            Track your skin health patterns over time
           </p>
         </div>
         
         <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-3">
-          {activeTab === 'charts' && (
-            <>
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="show-medications"
-                  className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                  checked={showMedications}
-                  onChange={(e) => setShowMedications(e.target.checked)}
-                />
-                <label htmlFor="show-medications" className="ml-2 text-sm text-gray-700">
-                  Show medication usage
-                </label>
-              </div>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="show-medications"
+              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+              checked={showMedications}
+              onChange={(e) => setShowMedications(e.target.checked)}
+            />
+            <label htmlFor="show-medications" className="ml-2 text-sm text-gray-700">
+              Show medication usage
+            </label>
+          </div>
 
-              
-              <select
-                className="px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={timeRange}
-                onChange={(e) => setTimeRange(Number(e.target.value) as 7 | 14 | 30 | 90)}
-              >
-                <option value={7}>Last 7 days</option>
-                <option value={14}>Last 14 days</option>
-                <option value={30}>Last 30 days</option>
-                <option value={90}>Last 90 days</option>
-              </select>
-            </>
-          )}
+          <select
+            className="px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={timeRange}
+            onChange={(e) => setTimeRange(Number(e.target.value) as 7 | 14 | 30 | 90)}
+          >
+            <option value={7}>Last 7 days</option>
+            <option value={14}>Last 14 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+          </select>
         </div>
       </div>
 
       {/* Lifestyle Factors Controls */}
-      {activeTab === 'charts' && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-3">Select Lifestyle Factors</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                className="h-4 w-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500"
-                checked={selectedFactors.stress}
-                onChange={() => toggleLifestyleFactor('stress')}
-              />
-              <span className="ml-2 text-sm text-gray-700">Stress Level</span>
-              <div className="w-3 h-3 rounded-full bg-orange-500 ml-2"></div>
-            </label>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Select Lifestyle Factors</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              className="h-4 w-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500"
+              checked={selectedFactors.stress}
+              onChange={() => toggleLifestyleFactor('stress')}
+            />
+            <span className="ml-2 text-sm text-gray-700">Stress Level</span>
+            <div className="w-3 h-3 rounded-full bg-orange-500 ml-2"></div>
+          </label>
 
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                checked={selectedFactors.sleep}
-                onChange={() => toggleLifestyleFactor('sleep')}
-              />
-              <span className="ml-2 text-sm text-gray-700">Sleep Quality</span>
-              <div className="w-3 h-3 rounded-full bg-blue-500 ml-2"></div>
-            </label>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+              checked={selectedFactors.sleep}
+              onChange={() => toggleLifestyleFactor('sleep')}
+            />
+            <span className="ml-2 text-sm text-gray-700">Sleep Quality</span>
+            <div className="w-3 h-3 rounded-full bg-blue-500 ml-2"></div>
+          </label>
 
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                className="h-4 w-4 text-cyan-600 rounded border-gray-300 focus:ring-cyan-500"
-                checked={selectedFactors.water}
-                onChange={() => toggleLifestyleFactor('water')}
-              />
-              <span className="ml-2 text-sm text-gray-700">Water Intake</span>
-              <div className="w-3 h-3 rounded-full bg-cyan-500 ml-2"></div>
-            </label>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              className="h-4 w-4 text-cyan-600 rounded border-gray-300 focus:ring-cyan-500"
+              checked={selectedFactors.water}
+              onChange={() => toggleLifestyleFactor('water')}
+            />
+            <span className="ml-2 text-sm text-gray-700">Water Intake</span>
+            <div className="w-3 h-3 rounded-full bg-cyan-500 ml-2"></div>
+          </label>
 
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                className="h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
-                checked={selectedFactors.diet}
-                onChange={() => toggleLifestyleFactor('diet')}
-              />
-              <span className="ml-2 text-sm text-gray-700">Diet Quality</span>
-              <div className="w-3 h-3 rounded-full bg-green-500 ml-2"></div>
-            </label>
-          </div>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              className="h-4 w-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
+              checked={selectedFactors.diet}
+              onChange={() => toggleLifestyleFactor('diet')}
+            />
+            <span className="ml-2 text-sm text-gray-700">Diet Quality</span>
+            <div className="w-3 h-3 rounded-full bg-green-500 ml-2"></div>
+          </label>
         </div>
-      )}
-      
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab('charts')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'charts'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Severity Charts
-          </button>
-          <button
-            onClick={() => setActiveTab('triggers')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'triggers'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            AI Trigger Analysis
-          </button>
-        </nav>
       </div>
       
       {user.conditions.length === 0 ? (
@@ -330,193 +288,185 @@ const Trends: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {activeTab === 'charts' && (
-            <>
-              {chartData.map(({ condition, conditionData, medicationData, medicationPoints, conditionMedications, lifestyleFactorsData }) => {
-                // Filter out null values for the line chart but keep the indices aligned
-                const severityData = conditionData.map(d => d.severity);
-                
-                const datasets = [
-                  {
-                    label: 'Severity',
-                    data: severityData,
-                    borderColor: condition.color,
-                    backgroundColor: `${condition.color}33`,
-                    tension: 0.3,
-                    pointRadius: 0,
-                    pointHoverRadius: 6,
-                    spanGaps: true, // This will connect points across null values
-                    order: 10 // Higher order = rendered first (behind)
-                  }
-                ];
-                
-                // Add medication points dataset if enabled
-                if (showMedications && medicationData.some(point => point !== null)) {
-                  datasets.push({
-                    label: 'Medication Taken',
-                    data: medicationData,
-                    borderColor: '#10B981',
-                    backgroundColor: '#10B981',
-                    showLine: false, // Only show points, no line
-                    pointRadius: 8, // Larger points for better visibility
-                    pointHoverRadius: 12,
-                    pointStyle: 'rect', // Squares for medication points
-                    tension: 0,
-                    order: 1 // Lower order = rendered last (on top)
-                  });
-                }
+          {chartData.map(({ condition, conditionData, medicationData, medicationPoints, conditionMedications, lifestyleFactorsData }) => {
+            // Filter out null values for the line chart but keep the indices aligned
+            const severityData = conditionData.map(d => d.severity);
+            
+            const datasets = [
+              {
+                label: 'Severity',
+                data: severityData,
+                borderColor: condition.color,
+                backgroundColor: `${condition.color}33`,
+                tension: 0.3,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                spanGaps: true, // This will connect points across null values
+                order: 10 // Higher order = rendered first (behind)
+              }
+            ];
+            
+            // Add medication points dataset if enabled
+            if (showMedications && medicationData.some(point => point !== null)) {
+              datasets.push({
+                label: 'Medication Taken',
+                data: medicationData,
+                borderColor: '#10B981',
+                backgroundColor: '#10B981',
+                showLine: false, // Only show points, no line
+                pointRadius: 8, // Larger points for better visibility
+                pointHoverRadius: 12,
+                pointStyle: 'rect', // Squares for medication points
+                tension: 0,
+                order: 1 // Lower order = rendered last (on top)
+              });
+            }
 
-                // Add lifestyle factors if enabled
-                const factorColors = {
-                  stress: '#F97316', // Orange
-                  sleep: '#3B82F6',  // Blue
-                  water: '#06B6D4',  // Cyan
-                  diet: '#10B981'    // Green
-                };
+            // Add lifestyle factors if enabled
+            const factorColors = {
+              stress: '#F97316', // Orange
+              sleep: '#3B82F6',  // Blue
+              water: '#06B6D4',  // Cyan
+              diet: '#10B981'    // Green
+            };
 
-                const factorLabels = {
-                  stress: 'Stress Level',
-                  sleep: 'Sleep Quality',
-                  water: 'Water Intake',
-                  diet: 'Diet Quality'
-                };
+            const factorLabels = {
+              stress: 'Stress Level',
+              sleep: 'Sleep Quality',
+              water: 'Water Intake',
+              diet: 'Diet Quality'
+            };
 
-                Object.entries(selectedFactors).forEach(([factor, isSelected]) => {
-                  if (isSelected && lifestyleFactorsData[factor as keyof typeof lifestyleFactorsData]) {
-                    datasets.push({
-                      label: factorLabels[factor as keyof typeof factorLabels],
-                      data: lifestyleFactorsData[factor as keyof typeof lifestyleFactorsData],
-                      borderColor: factorColors[factor as keyof typeof factorColors],
-                      backgroundColor: `${factorColors[factor as keyof typeof factorColors]}33`,
-                      tension: 0.3,
-                      pointRadius: 3,
-                      pointHoverRadius: 6,
-                      spanGaps: true,
-                      borderDash: [5, 5], // Dashed line to differentiate from severity
-                      order: 5 // Middle order
-                    });
-                  }
+            Object.entries(selectedFactors).forEach(([factor, isSelected]) => {
+              if (isSelected && lifestyleFactorsData[factor as keyof typeof lifestyleFactorsData]) {
+                datasets.push({
+                  label: factorLabels[factor as keyof typeof factorLabels],
+                  data: lifestyleFactorsData[factor as keyof typeof lifestyleFactorsData],
+                  borderColor: factorColors[factor as keyof typeof factorColors],
+                  backgroundColor: `${factorColors[factor as keyof typeof factorColors]}33`,
+                  tension: 0.3,
+                  pointRadius: 3,
+                  pointHoverRadius: 6,
+                  spanGaps: true,
+                  borderDash: [5, 5], // Dashed line to differentiate from severity
+                  order: 5 // Middle order
                 });
-              
-                return (
-                  <div key={condition.id} className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center">
-                        <div 
-                          className="w-3 h-3 rounded-full mr-2" 
-                          style={{ backgroundColor: condition.color }}
-                        ></div>
-                        <h2 className="text-lg font-medium text-gray-800">{condition.name}</h2>
-                      </div>
-                      
-                      {/* Show associated medications */}
-                      {conditionMedications.length > 0 && (
-                        <div className="text-sm text-gray-500">
-                          Medications: {conditionMedications.map(med => med.name).join(', ')}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="mb-4">
-                      <LineChart
-                        title=""
-                        labels={conditionData.map(d => d.date)}
-                        datasets={datasets}
-                        showMedicationPoints={showMedications}
-                        medicationData={medicationPoints}
-                      />
-                    </div>
-                    
-                    {/* Legend */}
-                    <div className="flex flex-wrap gap-4 mb-4 text-sm">
-                      <div className="flex items-center">
-                        <div 
-                          className="w-3 h-0.5 mr-2" 
-                          style={{ backgroundColor: condition.color }}
-                        ></div>
-                        <span className="text-gray-600">Condition Severity</span>
-                      </div>
-                      {showMedications && medicationData.some(point => point !== null) && (
-                        <div className="flex items-center">
-                          <div className="w-3 h-3 mr-2 bg-green-500"></div>
-                          <span className="text-gray-600">Medication Taken</span>
-                        </div>
-                      )}
-                      {Object.entries(selectedFactors).map(([factor, isSelected]) => {
-                        if (!isSelected) return null;
-                        const colors = {
-                          stress: 'bg-orange-500',
-                          sleep: 'bg-blue-500',
-                          water: 'bg-cyan-500',
-                          diet: 'bg-green-500'
-                        };
-                        const labels = {
-                          stress: 'Stress Level',
-                          sleep: 'Sleep Quality',
-                          water: 'Water Intake',
-                          diet: 'Diet Quality'
-                        };
-                        return (
-                          <div key={factor} className="flex items-center">
-                            <div className={`w-3 h-0.5 mr-2 ${colors[factor as keyof typeof colors]}`}></div>
-                            <span className="text-gray-600">{labels[factor as keyof typeof labels]}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    
-                    {/* Summary statistics */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Average Severity</p>
-                        <p className="text-lg font-medium text-gray-800">
-                          {conditionData.filter(d => d.severity !== null).length > 0 
-                            ? (conditionData
-                                .filter(d => d.severity !== null)
-                                .reduce((sum, d) => sum + (d.severity || 0), 0) / 
-                               conditionData.filter(d => d.severity !== null).length
-                              ).toFixed(1)
-                            : '0.0'
-                          }
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-gray-500">Highest Severity</p>
-                        <p className="text-lg font-medium text-gray-800">
-                          {conditionData.filter(d => d.severity !== null).length > 0 
-                            ? Math.max(...conditionData.filter(d => d.severity !== null).map(d => d.severity || 0))
-                            : '0'
-                          }
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-gray-500">Lowest Severity</p>
-                        <p className="text-lg font-medium text-gray-800">
-                          {conditionData.filter(d => d.severity !== null && d.severity > 0).length > 0 
-                            ? Math.min(...conditionData.filter(d => d.severity !== null && d.severity > 0).map(d => d.severity || 0))
-                            : '0'
-                          }
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-gray-500">Days with Meds</p>
-                        <p className="text-lg font-medium text-gray-800">
-                          {medicationData.filter(point => point !== null).length}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </>
-          )}
+              }
+            });
           
-          {activeTab === 'triggers' && (
-            <TriggerAnalysisComponent insights={triggerInsights} />
-          )}
+            return (
+              <div key={condition.id} className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <div 
+                      className="w-3 h-3 rounded-full mr-2" 
+                      style={{ backgroundColor: condition.color }}
+                    ></div>
+                    <h2 className="text-lg font-medium text-gray-800">{condition.name}</h2>
+                  </div>
+                  
+                  {/* Show associated medications */}
+                  {conditionMedications.length > 0 && (
+                    <div className="text-sm text-gray-500">
+                      Medications: {conditionMedications.map(med => med.name).join(', ')}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mb-4">
+                  <LineChart
+                    title=""
+                    labels={conditionData.map(d => d.date)}
+                    datasets={datasets}
+                    showMedicationPoints={showMedications}
+                    medicationData={medicationPoints}
+                  />
+                </div>
+                
+                {/* Legend */}
+                <div className="flex flex-wrap gap-4 mb-4 text-sm">
+                  <div className="flex items-center">
+                    <div 
+                      className="w-3 h-0.5 mr-2" 
+                      style={{ backgroundColor: condition.color }}
+                    ></div>
+                    <span className="text-gray-600">Condition Severity</span>
+                  </div>
+                  {showMedications && medicationData.some(point => point !== null) && (
+                    <div className="flex items-center">
+                      <div className="w-3 h-3 mr-2 bg-green-500"></div>
+                      <span className="text-gray-600">Medication Taken</span>
+                    </div>
+                  )}
+                  {Object.entries(selectedFactors).map(([factor, isSelected]) => {
+                    if (!isSelected) return null;
+                    const colors = {
+                      stress: 'bg-orange-500',
+                      sleep: 'bg-blue-500',
+                      water: 'bg-cyan-500',
+                      diet: 'bg-green-500'
+                    };
+                    const labels = {
+                      stress: 'Stress Level',
+                      sleep: 'Sleep Quality',
+                      water: 'Water Intake',
+                      diet: 'Diet Quality'
+                    };
+                    return (
+                      <div key={factor} className="flex items-center">
+                        <div className={`w-3 h-0.5 mr-2 ${colors[factor as keyof typeof colors]}`}></div>
+                        <span className="text-gray-600">{labels[factor as keyof typeof labels]}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* Summary statistics */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Average Severity</p>
+                    <p className="text-lg font-medium text-gray-800">
+                      {conditionData.filter(d => d.severity !== null).length > 0 
+                        ? (conditionData
+                            .filter(d => d.severity !== null)
+                            .reduce((sum, d) => sum + (d.severity || 0), 0) / 
+                           conditionData.filter(d => d.severity !== null).length
+                          ).toFixed(1)
+                        : '0.0'
+                      }
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-gray-500">Highest Severity</p>
+                    <p className="text-lg font-medium text-gray-800">
+                      {conditionData.filter(d => d.severity !== null).length > 0 
+                        ? Math.max(...conditionData.filter(d => d.severity !== null).map(d => d.severity || 0))
+                        : '0'
+                      }
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-gray-500">Lowest Severity</p>
+                    <p className="text-lg font-medium text-gray-800">
+                      {conditionData.filter(d => d.severity !== null && d.severity > 0).length > 0 
+                        ? Math.min(...conditionData.filter(d => d.severity !== null && d.severity > 0).map(d => d.severity || 0))
+                        : '0'
+                      }
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-gray-500">Days with Meds</p>
+                    <p className="text-lg font-medium text-gray-800">
+                      {medicationData.filter(point => point !== null).length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

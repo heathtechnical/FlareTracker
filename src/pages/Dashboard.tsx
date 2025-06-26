@@ -13,9 +13,7 @@ import { useApp } from '../context/AppContext';
 import ConditionCard from '../components/ConditionCard';
 import MedicationCard from '../components/MedicationCard';
 import CheckInSummary from '../components/CheckInSummary';
-import TriggerAnalysisComponent from '../components/TriggerAnalysis';
 import MedicationAlerts from '../components/MedicationAlerts';
-import { getTriggersForAllConditions } from '../utils/triggerAnalysis';
 import { getMedicationAlerts, getMedicationAdherenceScore } from '../utils/medicationUtils';
 import { format, subDays } from 'date-fns';
 
@@ -127,12 +125,6 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Get trigger insights for all conditions
-  const triggerInsights = getTriggersForAllConditions(user.checkIns, user.conditions);
-  const hasSignificantTriggers = triggerInsights.some(insight => 
-    insight.triggers.length > 0 || insight.protectiveFactors.length > 0
-  );
-
   // Get medication alerts and adherence score
   const medicationAlerts = useMemo(() => {
     return getMedicationAlerts(user.medications, user.checkIns);
@@ -150,7 +142,7 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-neutral-800">Welcome back, {user.name}</h1>
-          <p className="text-neutral-500 mt-1">Advanced skin health analytics and insights</p>
+          <p className="text-neutral-500 mt-1">Track your skin health journey</p>
         </div>
         
         {!todayCheckIn && (

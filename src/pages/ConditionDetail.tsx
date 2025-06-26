@@ -5,8 +5,6 @@ import { format, parseISO, subDays } from 'date-fns';
 import { useApp } from '../context/AppContext';
 import LineChart from '../components/LineChart';
 import SeverityScale from '../components/SeverityScale';
-import TriggerAnalysisComponent from '../components/TriggerAnalysis';
-import { analyzeTriggers } from '../utils/triggerAnalysis';
 
 const ConditionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,12 +15,6 @@ const ConditionDetail: React.FC = () => {
     if (!id || !user) return null;
     return getConditionById(id);
   }, [id, user, getConditionById]);
-  
-  // Generate trigger analysis
-  const triggerInsights = useMemo(() => {
-    if (!condition || !user) return [];
-    return [analyzeTriggers(user.checkIns, condition.id, condition.name)];
-  }, [condition, user]);
   
   if (!condition || !user) {
     return (
@@ -170,12 +162,6 @@ const ConditionDetail: React.FC = () => {
           labels={chartData.labels}
           datasets={chartData.datasets}
         />
-      </div>
-      
-      {/* Trigger Analysis */}
-      <div>
-        <h3 className="text-lg font-medium text-gray-800 mb-4">Trigger Analysis</h3>
-        <TriggerAnalysisComponent insights={triggerInsights} />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
