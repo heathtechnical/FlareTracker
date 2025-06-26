@@ -208,7 +208,7 @@ IMPORTANT RULES:
   },
   "notes": "general notes",
   "isComplete": true/false
-}`
+}`;
     
 //     return `You are a helpful AI assistant for a skin health tracking app. Your job is to collect check-in information through natural conversation and return structured JSON data.
 
