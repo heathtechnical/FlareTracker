@@ -93,7 +93,7 @@ export default function ChatGPTAssistant({
       setIsConnected(true);
 
       const conditionNames = user?.conditions?.map(c => c.name).join(', ') || 'your skin conditions';
-      const greeting = `Hi! I'm here to help you complete your daily skin check-in. Let's start by talking about how ${conditionNames} ${user?.conditions?.length === 1 ? 'is' : 'are'} feeling today. 
+      const greeting = `Hi! I'm here to help you complete your daily skin check-in. Let's start by talking about how your ${conditionNames} ${user?.conditions?.length === 1 ? 'is' : 'are'} feeling today. 
 
 Please describe how your skin is today - you can mention severity, symptoms, or anything you've noticed.`;
 
