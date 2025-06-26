@@ -194,7 +194,7 @@ IMPORTANT RULES:
 - ONLY include data that the user has actually provided in conversation
 - Don't ask about symptoms or medications unless the user brings them up
 - Assume medications are NOT taken unless explicitly mentioned
-- Focus conversation on getting severity ratings for all conditions
+- Focus conversation on calculating severity ratings for all conditions
 - Ratings should be taken from the conversation, don't ask for a numeric rating unless required
 - Be conversational and supportive, not clinical
 - Only set "isComplete": true when you have severity ratings for ALL conditions
