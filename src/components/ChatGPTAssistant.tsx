@@ -198,7 +198,7 @@ IMPORTANT RULES:
 - Ratings should be taken from the conversation, don't ask for a numeric rating unless required
 - Be conversational and supportive, not clinical
 - Only set "isComplete": true when you have severity ratings for ALL conditions
-- Don't make assumptions or fill in missing optional data`;
+- Don't fill in optional data unless it has been provided`;
   };
 
   const sendMessage = async () => {
