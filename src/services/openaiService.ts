@@ -70,22 +70,32 @@ CONVERSATION STYLE:
 - Celebrate improvements and progress
 - Keep responses concise (1-2 sentences max)
 
-IMPORTANT RULES:
+CRITICAL RULES:
 - NEVER ask multiple questions in one response
-- Always acknowledge what the user said before moving on
-- Stay focused on skin health topics
+- NEVER include follow-up questions in your response
+- ONLY provide acknowledgment and support
+- The system will handle asking the next question automatically
+- Focus on being empathetic and understanding
 - Don't provide medical advice - encourage consulting healthcare providers for concerns
 - If they mention severe symptoms or worsening conditions, gently suggest consulting their doctor
-- Only provide acknowledgment responses, not follow-up questions (the system handles question flow)
 
 RESPONSE FORMAT:
-Respond with only a brief acknowledgment or supportive comment about what the user just shared. Do NOT ask the next question - the system will handle that automatically.
+Respond with ONLY a brief acknowledgment or supportive comment about what the user just shared. Do NOT ask any questions - the system handles question flow automatically.
 
-Examples of good responses:
+Examples of PERFECT responses:
 - "Thank you for sharing that. I've noted your severity rating."
-- "I understand, that sounds challenging. I've recorded that information."
-- "That's great to hear! I've updated your check-in."
-- "I'm sorry you're experiencing that. I've made note of those symptoms."`;
+- "I understand, that sounds challenging."
+- "That's great to hear!"
+- "I'm sorry you're experiencing that."
+- "Got it, I've recorded that information."
+- "Thank you for letting me know."
+
+Examples of WRONG responses (DO NOT DO THIS):
+- "Thank you for sharing that. How are your symptoms today?" (NO QUESTIONS!)
+- "I understand. What medications did you take?" (NO QUESTIONS!)
+- "That's noted. Can you tell me about..." (NO QUESTIONS!)
+
+Remember: ACKNOWLEDGMENT ONLY, NO QUESTIONS!`;
   }
 
   async sendMessage(
@@ -117,7 +127,7 @@ Examples of good responses:
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [systemMessage, ...messages],
-        max_tokens: 150,
+        max_tokens: 100, // Reduced to encourage shorter responses
         temperature: 0.7,
         presence_penalty: 0.1,
         frequency_penalty: 0.1
@@ -134,7 +144,10 @@ Examples of good responses:
         throw new Error('No response content received from OpenAI');
       }
 
-      return content;
+      // Clean the response to ensure it doesn't contain questions
+      const cleanedContent = this.cleanResponse(content);
+
+      return cleanedContent;
     } catch (error: any) {
       console.error('OpenAI API error:', error);
       
@@ -168,127 +181,45 @@ Examples of good responses:
     }
   }
 
-  async parseUserResponse(
-    userInput: string,
-    context: CheckInContext,
-    currentTopic: string
-  ): Promise<{
-    severity?: number;
-    symptoms?: string[];
-    medicationTaken?: boolean;
-    lifestyleFactor?: { type: string; value: number };
-    needsMoreInfo?: boolean;
-  }> {
-    if (!openai) {
-      // Fall back to local parsing if OpenAI is not available
-      return this.fallbackParsing(userInput);
-    }
-
-    try {
-      const parsePrompt = `Parse this user response for skin health check-in data. Current topic: ${currentTopic}
-
-User input: "${userInput}"
-
-Extract any of the following if mentioned:
-- Severity rating (1-5 scale)
-- Symptoms (itchiness, redness, dryness, flaking, pain, swelling, burning, bleeding)
-- Medication adherence (yes/no/taken/skipped)
-- Lifestyle factors with ratings (stress, sleep, water, diet on 1-5 scale)
-
-Respond with a JSON object containing only the data you can confidently extract. Use null for unclear items.
-
-Example: {"severity": 3, "symptoms": ["itchiness", "redness"], "medicationTaken": true}`;
-
-      const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a data extraction assistant. Respond only with valid JSON.'
-          },
-          {
-            role: 'user',
-            content: parsePrompt
-          }
-        ],
-        max_tokens: 150,
-        temperature: 0.1
-      });
-
-      const content = response.choices[0]?.message?.content;
-      if (content) {
-        try {
-          return JSON.parse(content);
-        } catch {
-          // If JSON parsing fails, fall back to simple keyword detection
-          return this.fallbackParsing(userInput);
-        }
-      }
-      
-      return this.fallbackParsing(userInput);
-    } catch (error) {
-      console.error('Parsing error:', error);
-      return this.fallbackParsing(userInput);
-    }
-  }
-
-  private fallbackParsing(input: string): any {
-    const lowerInput = input.toLowerCase();
-    const result: any = {};
-
-    // Parse severity
-    const severityKeywords = {
-      'minimal': 1, 'very mild': 1, 'barely': 1,
-      'mild': 2, 'slight': 2, 'little': 2,
-      'moderate': 3, 'medium': 3, 'okay': 3, 'average': 3,
-      'severe': 4, 'bad': 4, 'painful': 4, 'worse': 4,
-      'extreme': 5, 'terrible': 5, 'unbearable': 5, 'worst': 5
-    };
-
-    for (const [keyword, value] of Object.entries(severityKeywords)) {
-      if (lowerInput.includes(keyword)) {
-        result.severity = value;
-        break;
-      }
-    }
-
-    // Parse numbers
-    const numberMatch = input.match(/\b([1-5])\b/);
-    if (numberMatch && !result.severity) {
-      result.severity = parseInt(numberMatch[1]);
-    }
-
-    // Parse symptoms
-    const symptoms: string[] = [];
-    const symptomKeywords = {
-      'itchy': 'Itchiness', 'itch': 'Itchiness', 'scratchy': 'Itchiness',
-      'red': 'Redness', 'inflamed': 'Redness',
-      'dry': 'Dryness',
-      'flaky': 'Flaking', 'peeling': 'Flaking',
-      'painful': 'Pain', 'hurt': 'Pain', 'sore': 'Pain',
-      'swollen': 'Swelling',
-      'burning': 'Burning',
-      'bleeding': 'Bleeding'
-    };
-
-    Object.entries(symptomKeywords).forEach(([keyword, symptom]) => {
-      if (lowerInput.includes(keyword) && !symptoms.includes(symptom)) {
-        symptoms.push(symptom);
-      }
+  private cleanResponse(response: string): string {
+    // Remove any questions from the response
+    const sentences = response.split(/[.!?]+/).filter(s => s.trim());
+    
+    // Filter out sentences that contain question marks or question words
+    const nonQuestionSentences = sentences.filter(sentence => {
+      const lowerSentence = sentence.toLowerCase().trim();
+      return !sentence.includes('?') && 
+             !lowerSentence.startsWith('how') &&
+             !lowerSentence.startsWith('what') &&
+             !lowerSentence.startsWith('when') &&
+             !lowerSentence.startsWith('where') &&
+             !lowerSentence.startsWith('why') &&
+             !lowerSentence.startsWith('can you') &&
+             !lowerSentence.startsWith('could you') &&
+             !lowerSentence.startsWith('would you') &&
+             !lowerSentence.startsWith('do you') &&
+             !lowerSentence.startsWith('did you') &&
+             !lowerSentence.startsWith('are you') &&
+             !lowerSentence.startsWith('is there') &&
+             !lowerSentence.includes('tell me') &&
+             !lowerSentence.includes('let me know');
     });
 
-    if (symptoms.length > 0) {
-      result.symptoms = symptoms;
+    if (nonQuestionSentences.length > 0) {
+      // Take the first acknowledgment sentence
+      return nonQuestionSentences[0].trim() + '.';
     }
 
-    // Parse medication adherence
-    if (lowerInput.includes('yes') || lowerInput.includes('took') || lowerInput.includes('taken')) {
-      result.medicationTaken = true;
-    } else if (lowerInput.includes('no') || lowerInput.includes('forgot') || lowerInput.includes('skipped')) {
-      result.medicationTaken = false;
-    }
+    // Fallback acknowledgments if the response was all questions
+    const fallbackResponses = [
+      "Thank you for sharing that.",
+      "I've noted that information.",
+      "Got it, thank you.",
+      "I understand.",
+      "Thank you for letting me know."
+    ];
 
-    return result;
+    return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
   }
 
   // Test connection method

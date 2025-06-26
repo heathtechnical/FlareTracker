@@ -32,6 +32,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
   const [currentLifestyleFactor, setCurrentLifestyleFactor] = useState<'stress' | 'sleep' | 'water' | 'diet' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  const [questionQueue, setQuestionQueue] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -48,7 +49,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
 
   const addMessage = (type: 'user' | 'ai' | 'system', content: string) => {
     const newMessage: Message = {
-      id: Date.now().toString(),
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       type,
       content,
       timestamp: new Date()
@@ -134,37 +135,10 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
       setConnectionStatus('connected');
       addSystemMessage('✅ Connected to ChatGPT successfully!');
 
-      const context = {
-        userName: user.name,
-        conditions: user.conditions,
-        medications: user.medications,
-        currentFormData: formData
-      };
-
-      const initialMessage = await openaiService.sendMessage(
-        [{
-          role: 'user',
-          content: 'Hi! I\'m ready to do my daily skin check-in. Can you help me get started?'
-        }],
-        context
-      );
-
-      addAIMessage(initialMessage);
-      
-      // Add the first question after a short delay
+      // Start with a simple greeting
       setTimeout(() => {
-        if (user.conditions.length > 0) {
-          addAIMessage(`Perfect! Let's start with your ${user.conditions[0].name}. How is it feeling today? You can describe it in your own words or rate it from 1-5 (1 = minimal, 5 = extreme).`);
-          setCurrentStep('conditions');
-        } else {
-          addAIMessage("I notice you don't have any conditions set up yet. You'll need to add some conditions first before we can continue with the check-in.");
-        }
-      }, 1500);
-
-      setChatHistory([{
-        role: 'user',
-        content: 'Hi! I\'m ready to do my daily skin check-in. Can you help me get started?'
-      }]);
+        addAIMessage("Hi! I'm here to help you with your daily skin check-in. Are you ready to get started?");
+      }, 1000);
 
     } catch (error: any) {
       console.error('Failed to initialize conversation:', error);
@@ -323,25 +297,35 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     }
   };
 
-  const getNextQuestion = (): string => {
-    if (!user) return "I need user information to continue.";
+  const getNextQuestion = (): string | null => {
+    if (!user) return null;
 
     switch (currentStep) {
-      case 'conditions':
-        const currentCondition = user.conditions[currentConditionIndex];
-        if (currentCondition) {
-          return `How is your ${currentCondition.name} feeling today? Please describe it in your own words or rate it from 1-5 (1 = minimal, 5 = extreme).`;
+      case 'greeting':
+        if (user.conditions.length > 0) {
+          setCurrentStep('conditions');
+          return `Perfect! Let's start with your ${user.conditions[0].name}. How is it feeling today? You can describe it in your own words or rate it from 1-5 (1 = minimal, 5 = extreme).`;
+        } else {
+          return "I notice you don't have any conditions set up yet. You'll need to add some conditions first before we can continue with the check-in.";
         }
-        return "Let's move on to your medications.";
+      
+      case 'conditions':
+        if (currentConditionIndex < user.conditions.length - 1) {
+          const nextCondition = user.conditions[currentConditionIndex + 1];
+          setCurrentConditionIndex(currentConditionIndex + 1);
+          return `Now let's talk about your ${nextCondition.name}. How is it feeling today? Please describe it or rate it from 1-5.`;
+        } else {
+          setCurrentStep('medications');
+          return "Great! Now let's talk about your medications. Did you take any of your prescribed medications today?";
+        }
       
       case 'medications':
-        return "Did you take any of your prescribed medications today? Please answer yes or no.";
+        setCurrentStep('lifestyle');
+        setCurrentLifestyleFactor('stress');
+        return "Perfect! Now let's talk about some lifestyle factors. How would you rate your stress level today from 1-5?";
       
       case 'lifestyle':
-        if (!currentLifestyleFactor) {
-          setCurrentLifestyleFactor('stress');
-          return "Now let's talk about some lifestyle factors. How would you rate your stress level today from 1-5?";
-        } else if (currentLifestyleFactor === 'stress') {
+        if (currentLifestyleFactor === 'stress') {
           setCurrentLifestyleFactor('sleep');
           return "How was your sleep quality last night? Rate it from 1-5 or describe it.";
         } else if (currentLifestyleFactor === 'sleep') {
@@ -356,26 +340,70 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
         }
       
       case 'complete':
-        return "Thank you for sharing! You can now review and complete your check-in using the main form. Have a great day!";
+        return null; // No more questions
       
       default:
-        return "I'm not sure what to ask next. Please continue with the manual form.";
+        return null;
     }
   };
 
-  const handleStepProgression = (parsed: any) => {
-    if (currentStep === 'conditions' && parsed.severity) {
-      if (currentConditionIndex < user!.conditions.length - 1) {
-        setCurrentConditionIndex(currentConditionIndex + 1);
-      } else {
-        setCurrentStep('medications');
-      }
+  const processNextStep = (parsed: any) => {
+    let shouldProgress = false;
+
+    if (currentStep === 'greeting' && (
+      parsed.medicationTaken !== undefined || 
+      inputValue.toLowerCase().includes('yes') || 
+      inputValue.toLowerCase().includes('ready') || 
+      inputValue.toLowerCase().includes('sure')
+    )) {
+      shouldProgress = true;
+    } else if (currentStep === 'conditions' && parsed.severity) {
+      shouldProgress = true;
     } else if (currentStep === 'medications' && parsed.medicationTaken !== undefined) {
-      setCurrentStep('lifestyle');
-      setCurrentLifestyleFactor('stress');
+      shouldProgress = true;
     } else if (currentStep === 'lifestyle' && parsed.lifestyleValue) {
-      // Progression is handled in getNextQuestion
+      shouldProgress = true;
     }
+
+    if (shouldProgress) {
+      setTimeout(() => {
+        const nextQuestion = getNextQuestion();
+        if (nextQuestion) {
+          addAIMessage(nextQuestion);
+        }
+      }, 1500);
+    }
+  };
+
+  const cleanAIResponse = (response: string): string => {
+    // Remove multiple questions - only keep the acknowledgment
+    const sentences = response.split(/[.!?]+/).filter(s => s.trim());
+    
+    // Look for acknowledgment sentences (avoid questions)
+    const acknowledgments = sentences.filter(sentence => 
+      !sentence.includes('?') && 
+      (sentence.toLowerCase().includes('thank') ||
+       sentence.toLowerCase().includes('got it') ||
+       sentence.toLowerCase().includes('understand') ||
+       sentence.toLowerCase().includes('noted') ||
+       sentence.toLowerCase().includes('recorded') ||
+       sentence.toLowerCase().includes('great') ||
+       sentence.toLowerCase().includes('perfect') ||
+       sentence.toLowerCase().includes('good'))
+    );
+
+    if (acknowledgments.length > 0) {
+      return acknowledgments[0].trim() + '.';
+    }
+
+    // If no clear acknowledgment, take the first non-question sentence
+    const nonQuestions = sentences.filter(s => !s.includes('?'));
+    if (nonQuestions.length > 0) {
+      return nonQuestions[0].trim() + '.';
+    }
+
+    // Fallback to first sentence
+    return sentences[0]?.trim() + '.' || response;
   };
 
   const handleUserInput = async () => {
@@ -395,9 +423,6 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
       // Parse the user input locally first
       const parsed = parseUserResponseLocal(userInput);
       updateFormDataFromParsedResponse(parsed);
-      
-      // Handle step progression
-      handleStepProgression(parsed);
 
       const context = {
         userName: user.name,
@@ -410,11 +435,13 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
       let contextualPrompt = userInput;
       if (currentStep === 'conditions') {
         const currentCondition = user.conditions[currentConditionIndex];
-        contextualPrompt = `User is describing their ${currentCondition?.name}: "${userInput}"`;
+        contextualPrompt = `User is describing their ${currentCondition?.name}: "${userInput}". Please acknowledge this briefly without asking follow-up questions.`;
       } else if (currentStep === 'medications') {
-        contextualPrompt = `User is answering about medication adherence: "${userInput}"`;
+        contextualPrompt = `User answered about medication adherence: "${userInput}". Please acknowledge briefly.`;
       } else if (currentStep === 'lifestyle') {
-        contextualPrompt = `User is rating their ${currentLifestyleFactor}: "${userInput}"`;
+        contextualPrompt = `User rated their ${currentLifestyleFactor}: "${userInput}". Please acknowledge briefly.`;
+      } else if (currentStep === 'greeting') {
+        contextualPrompt = `User responded to greeting: "${userInput}". Please acknowledge briefly.`;
       }
 
       // Add user message to chat history
@@ -426,33 +453,18 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
       // Get AI response
       const aiResponse = await openaiService.sendMessage(newChatHistory, context);
       
-      // Clean the response to remove multiple questions
-      const responseLines = aiResponse.split('\n').filter(line => line.trim());
-      let cleanResponse = aiResponse;
-      
-      // If response has multiple sentences, take the first one or two that acknowledge the user
-      if (responseLines.length > 1 || aiResponse.includes('?')) {
-        const sentences = aiResponse.split(/[.!?]+/).filter(s => s.trim());
-        if (sentences.length > 1) {
-          // Take the first sentence that acknowledges the user's input
-          cleanResponse = sentences[0].trim() + '.';
-        }
-      }
+      // Clean the response to ensure it's just an acknowledgment
+      const cleanResponse = cleanAIResponse(aiResponse);
       
       addAIMessage(cleanResponse);
 
-      // Add the next question after a short delay
-      setTimeout(() => {
-        const nextQuestion = getNextQuestion();
-        if (nextQuestion && nextQuestion !== cleanResponse) {
-          addAIMessage(nextQuestion);
-        }
-      }, 1500);
+      // Process next step after AI response
+      processNextStep(parsed);
 
       // Update chat history with AI response
       setChatHistory([
         ...newChatHistory,
-        { role: 'assistant', content: aiResponse }
+        { role: 'assistant', content: cleanResponse }
       ]);
 
     } catch (error: any) {
@@ -479,6 +491,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
     setCurrentConditionIndex(0);
     setCurrentLifestyleFactor(null);
     setConnectionStatus('connecting');
+    setQuestionQueue([]);
     initializeConversation();
   };
 
@@ -662,7 +675,7 @@ const ChatGPTAssistant: React.FC<ChatGPTAssistantProps> = ({
           </div>
           <div className="flex justify-between items-center mt-2">
             <p className="text-xs text-gray-500">
-              Press Enter to send • ChatGPT will help you fill out your check-in form
+              Press Enter to send • One question at a time for better conversation flow
             </p>
             {connectionStatus === 'connected' && (
               <button
