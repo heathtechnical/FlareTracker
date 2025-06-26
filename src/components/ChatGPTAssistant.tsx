@@ -169,7 +169,7 @@ YOUR TASK:
    - Lifestyle factors (stress, sleep, water, diet – use 1–5 if mentioned)
    - Weather, notes, anything else volunteered
 
-4. When you have severity ratings for all conditions, provide a brief friendly summary and return the structured check-in data with `"isComplete": true`.
+4. When you have severity ratings for all conditions, provide a brief friendly summary and return the structured check-in data with `"isComplete": true.
 
 ---
 
@@ -183,7 +183,7 @@ IMPORTANT RULES:
    - It is OK to estimate severity ratings based on their descriptions — but document reasoning in your notes if needed.
 - Don’t fill optional fields unless prompted.
 - At the end of each response, include a JSON block in this exact format:
-````json
+\`\`\`json
 {
   "conditionEntries": {
     "condition-id": {
@@ -208,7 +208,7 @@ IMPORTANT RULES:
   },
   "notes": "general notes",
   "isComplete": true/false
-}`;
+}\`\`\``;
     
 //     return `You are a helpful AI assistant for a skin health tracking app. Your job is to collect check-in information through natural conversation and return structured JSON data.
 
