@@ -270,6 +270,7 @@ IMPORTANT RULES:
       );
 
       // Extract JSON data from response
+      console.log(response)
       const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
       if (jsonMatch) {
         try {
