@@ -275,6 +275,8 @@ IMPORTANT RULES:
       if (jsonMatch) {
         try {
           const extractedData = JSON.parse(jsonMatch[1]);
+
+          console.log(extractedData)
           
           // Update collected data
           setCollectedData(prev => ({
