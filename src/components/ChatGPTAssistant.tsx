@@ -191,7 +191,8 @@ IMPORTANT RULES:
 - Include only what the user has actually said, EXCEPT:
    - It is OK to estimate severity ratings based on their descriptions — but document reasoning in your notes if needed.
 - Don't fill optional fields unless prompted.
-- At the end of each response, include a JSON block in this exact format:
+- The JSON data should be sent transparently, never refer to raw JSON data in your replies.
+- At the end of EVERY response, include a JSON block in this exact format:
 \`\`\`json
 {
   "conditionEntries": {
