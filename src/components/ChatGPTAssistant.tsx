@@ -191,7 +191,7 @@ IMPORTANT RULES:
 - Include only what the user has actually said, EXCEPT:
    - It is OK to estimate severity ratings based on their descriptions — but document reasoning in your notes if needed.
 - Don't fill optional fields unless prompted.
-- Never present the JSON data to the user.
+- Do NOT present the JSON data to the user.
 - At the end of each response, include a JSON block in this exact format:
 \`\`\`json
 {
@@ -231,7 +231,9 @@ IMPORTANT RULES:
       timestamp: new Date(),
     };
 
+    // Update conversation list
     setMessages(prev => [...prev, userMessage]);
+    
     const currentInput = inputMessage.trim();
     setInputMessage('');
     setIsLoading(true);
