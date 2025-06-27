@@ -343,6 +343,8 @@ IMPORTANT RULES:
         } catch (parseError) {
           console.error('Error parsing JSON from AI response:', parseError);
         }
+      } else {
+        console.log("No JSON data in response")
       }
 
       // Remove JSON block from display message
