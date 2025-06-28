@@ -180,8 +180,7 @@ const Dashboard: React.FC = () => {
             onClick={() => setShowCheckInDialog(true)}
             className="flex items-center space-x-2 px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-all duration-200 font-medium shadow-sm hover:shadow-md"
           >
-            <Plus size={18} />
-            <span>{todayCheckIn ? 'Edit Check-in' : 'Daily Check-in'}</span>
+            <span>Check In</span>
           </button>
 
           {/* Premium AI Chat Button */}
