@@ -118,7 +118,7 @@ const CheckInPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-800">Check-In Calendar</h1>
+          <h1 className="text-2xl font-semibold text-gray-800">History</h1>
           <p className="text-gray-600">
             View your check-in history and add new entries
           </p>
