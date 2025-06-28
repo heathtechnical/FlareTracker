@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Send, X, Bot, User, Sparkles, Crown, Lock } from "lucide-react";
 import { openaiService } from "../services/openaiService";
 import { useApp } from "../context/AppContext";
-import { format, subDays } from "date-fns";
+import { format, subDays, differenceInDays, parseISO, startOfYear, endOfYear, isWithinInterval } from "date-fns";
 
 interface Message {
   id: string;
@@ -99,6 +99,8 @@ I can help you with:
 • Discussing your treatment progress and trends
 • Providing general skin health information
 • Answering questions about your FlareTracker history
+• Analyzing medication usage patterns
+• Identifying flare frequency and severity trends
 
 Please note: I cannot provide medical advice or diagnose conditions. Always consult with healthcare professionals for medical concerns.
 
@@ -129,6 +131,172 @@ How can I help you today?`;
     }
   };
 
+  const generateDetailedAnalytics = () => {
+    if (!user || !user.checkIns || user.checkIns.length === 0) {
+      return "No check-in data available for analysis.";
+    }
+
+    const now = new Date();
+    const oneYearAgo = subDays(now, 365);
+    const thirtyDaysAgo = subDays(now, 30);
+    const sevenDaysAgo = subDays(now, 7);
+
+    // Medication usage analytics
+    const medicationAnalytics = user.medications.map(medication => {
+      const usageData = {
+        lastYear: 0,
+        lastMonth: 0,
+        lastWeek: 0,
+        totalDoses: 0,
+        consecutiveDays: 0,
+        lastUsed: null as string | null,
+        usageByMonth: {} as Record<string, number>
+      };
+
+      user.checkIns.forEach(checkIn => {
+        const checkInDate = new Date(checkIn.date);
+        const medicationEntry = checkIn.medicationEntries.find(entry => 
+          entry.medicationId === medication.id && entry.taken
+        );
+
+        if (medicationEntry) {
+          const doses = medicationEntry.timesTaken || 1;
+          usageData.totalDoses += doses;
+          usageData.lastUsed = format(checkInDate, 'MMM d, yyyy');
+
+          // Count usage by time periods
+          if (checkInDate >= oneYearAgo) usageData.lastYear++;
+          if (checkInDate >= thirtyDaysAgo) usageData.lastMonth++;
+          if (checkInDate >= sevenDaysAgo) usageData.lastWeek++;
+
+          // Monthly breakdown
+          const monthKey = format(checkInDate, 'yyyy-MM');
+          usageData.usageByMonth[monthKey] = (usageData.usageByMonth[monthKey] || 0) + 1;
+        }
+      });
+
+      return { medication, ...usageData };
+    });
+
+    // Condition severity analytics
+    const conditionAnalytics = user.conditions.map(condition => {
+      const severityData = {
+        totalEntries: 0,
+        averageSeverity: 0,
+        severeFlares: 0, // severity 4-5
+        mildDays: 0, // severity 1-2
+        lastYear: { total: 0, average: 0, severe: 0 },
+        lastMonth: { total: 0, average: 0, severe: 0 },
+        lastWeek: { total: 0, average: 0, severe: 0 },
+        bestDay: { date: '', severity: 5 },
+        worstDay: { date: '', severity: 1 },
+        monthlyAverages: {} as Record<string, number>
+      };
+
+      const severities: number[] = [];
+      
+      user.checkIns.forEach(checkIn => {
+        const checkInDate = new Date(checkIn.date);
+        const conditionEntry = checkIn.conditionEntries.find(entry => 
+          entry.conditionId === condition.id
+        );
+
+        if (conditionEntry && conditionEntry.severity > 0) {
+          const severity = conditionEntry.severity;
+          severities.push(severity);
+          severityData.totalEntries++;
+
+          // Track best and worst days
+          if (severity < severityData.bestDay.severity) {
+            severityData.bestDay = { date: format(checkInDate, 'MMM d, yyyy'), severity };
+          }
+          if (severity > severityData.worstDay.severity) {
+            severityData.worstDay = { date: format(checkInDate, 'MMM d, yyyy'), severity };
+          }
+
+          // Count severe flares and mild days
+          if (severity >= 4) severityData.severeFlares++;
+          if (severity <= 2) severityData.mildDays++;
+
+          // Time period analysis
+          if (checkInDate >= oneYearAgo) {
+            severityData.lastYear.total++;
+            if (severity >= 4) severityData.lastYear.severe++;
+          }
+          if (checkInDate >= thirtyDaysAgo) {
+            severityData.lastMonth.total++;
+            if (severity >= 4) severityData.lastMonth.severe++;
+          }
+          if (checkInDate >= sevenDaysAgo) {
+            severityData.lastWeek.total++;
+            if (severity >= 4) severityData.lastWeek.severe++;
+          }
+
+          // Monthly averages
+          const monthKey = format(checkInDate, 'yyyy-MM');
+          if (!severityData.monthlyAverages[monthKey]) {
+            severityData.monthlyAverages[monthKey] = 0;
+          }
+          severityData.monthlyAverages[monthKey] += severity;
+        }
+      });
+
+      // Calculate averages
+      if (severities.length > 0) {
+        severityData.averageSeverity = severities.reduce((a, b) => a + b, 0) / severities.length;
+        
+        // Calculate period averages
+        const yearSeverities = severities.slice(-severityData.lastYear.total);
+        const monthSeverities = severities.slice(-severityData.lastMonth.total);
+        const weekSeverities = severities.slice(-severityData.lastWeek.total);
+        
+        severityData.lastYear.average = yearSeverities.length > 0 ? 
+          yearSeverities.reduce((a, b) => a + b, 0) / yearSeverities.length : 0;
+        severityData.lastMonth.average = monthSeverities.length > 0 ? 
+          monthSeverities.reduce((a, b) => a + b, 0) / monthSeverities.length : 0;
+        severityData.lastWeek.average = weekSeverities.length > 0 ? 
+          weekSeverities.reduce((a, b) => a + b, 0) / weekSeverities.length : 0;
+      }
+
+      // Convert monthly totals to averages
+      Object.keys(severityData.monthlyAverages).forEach(month => {
+        const monthEntries = user.checkIns.filter(checkIn => {
+          const monthKey = format(new Date(checkIn.date), 'yyyy-MM');
+          return monthKey === month && checkIn.conditionEntries.some(entry => 
+            entry.conditionId === condition.id && entry.severity > 0
+          );
+        }).length;
+        
+        if (monthEntries > 0) {
+          severityData.monthlyAverages[month] = severityData.monthlyAverages[month] / monthEntries;
+        }
+      });
+
+      return { condition, ...severityData };
+    });
+
+    // General tracking stats
+    const trackingStats = {
+      totalCheckIns: user.checkIns.length,
+      trackingDays: user.checkIns.length > 0 ? 
+        differenceInDays(now, new Date(user.checkIns[user.checkIns.length - 1].date)) : 0,
+      consistency: {
+        lastWeek: user.checkIns.filter(ci => new Date(ci.date) >= sevenDaysAgo).length,
+        lastMonth: user.checkIns.filter(ci => new Date(ci.date) >= thirtyDaysAgo).length,
+      },
+      firstCheckIn: user.checkIns.length > 0 ? 
+        format(new Date(user.checkIns[user.checkIns.length - 1].date), 'MMM d, yyyy') : 'N/A',
+      lastCheckIn: user.checkIns.length > 0 ? 
+        format(new Date(user.checkIns[0].date), 'MMM d, yyyy') : 'N/A'
+    };
+
+    return {
+      medicationAnalytics,
+      conditionAnalytics,
+      trackingStats
+    };
+  };
+
   const createSystemPrompt = () => {
     const conditionsList =
       user?.conditions?.map((c) => `- ${c.name}: ${c.description || 'No description'}`).join("\n") ||
@@ -150,9 +318,19 @@ How can I help you today?`;
             return `${condition?.name}: severity ${entry.severity}/5${entry.symptoms.length > 0 ? `, symptoms: ${entry.symptoms.join(', ')}` : ''}`;
           })
           .join('; ');
-        return `${date}: ${conditions}`;
+        const medications = checkIn.medicationEntries
+          .filter(entry => entry.taken)
+          .map(entry => {
+            const medication = user.medications.find(m => m.id === entry.medicationId);
+            return `${medication?.name}${entry.timesTaken && entry.timesTaken > 1 ? ` (${entry.timesTaken}x)` : ''}`;
+          })
+          .join(', ');
+        return `${date}: ${conditions}${medications ? ` | Medications: ${medications}` : ''}`;
       })
       .join('\n') || "No check-ins recorded yet";
+
+    // Generate detailed analytics
+    const analytics = generateDetailedAnalytics();
 
     // Calculate some basic stats
     const totalCheckIns = user?.checkIns?.length || 0;
@@ -168,6 +346,7 @@ CRITICAL GUIDELINES:
 - Be supportive, empathetic, and encouraging
 - Focus on data interpretation and general skin health education
 - Help users understand patterns and trends in their data
+- Provide specific analytics when asked (medication usage counts, flare frequencies, etc.)
 
 USER CONTEXT:
 Name: ${user?.name || 'User'}
@@ -184,22 +363,39 @@ ${medicationsList}
 RECENT CHECK-INS (last 10):
 ${recentCheckIns}
 
+DETAILED ANALYTICS DATA:
+${typeof analytics === 'string' ? analytics : JSON.stringify(analytics, null, 2)}
+
+RESPONSE CAPABILITIES:
+You can answer specific questions like:
+- "How many times did I use [medication] in the last year/month/week?"
+- "How many severe flares have I had this year?"
+- "What's my average severity for [condition]?"
+- "When was my last flare?"
+- "How consistent have I been with tracking?"
+- "What's my medication adherence pattern?"
+- "Show me my worst/best days"
+- "What are my monthly trends?"
+
 RESPONSE GUIDELINES:
 1. Be warm, supportive, and understanding
-2. Help interpret patterns in their data when asked
-3. Provide general skin health education
-4. Encourage consistent tracking
-5. Always remind users to consult healthcare providers for medical decisions
-6. If asked about specific symptoms or treatments, provide general information but emphasize professional consultation
-7. Celebrate improvements and provide encouragement during difficult periods
-8. Help users understand correlations in their data (stress, sleep, weather, etc.)
+2. Provide specific data when asked (use the analytics data above)
+3. Help interpret patterns and trends
+4. Provide general skin health education
+5. Encourage consistent tracking
+6. Always remind users to consult healthcare providers for medical decisions
+7. If asked about specific symptoms or treatments, provide general information but emphasize professional consultation
+8. Celebrate improvements and provide encouragement during difficult periods
+9. Help users understand correlations in their data (stress, sleep, weather, etc.)
+10. When providing statistics, be precise and reference the actual data
 
 EXAMPLE RESPONSES:
-- "I can see from your data that your eczema severity has been trending downward over the past month - that's encouraging progress!"
-- "I notice you've been consistent with tracking for 30 days - that's fantastic dedication to understanding your skin health!"
-- "While I can't provide medical advice, I can help you see patterns in your data that might be worth discussing with your dermatologist."
+- "Looking at your data, you've used hydrocortisone cream 15 times in the last year, with 8 uses in the past month."
+- "I can see you've had 3 severe flares (severity 4-5) in the past 6 months, which is down from 7 in the previous 6 months - that's encouraging progress!"
+- "Your eczema has averaged 2.3/5 severity over the past month, compared to 3.1/5 the month before."
+- "You've been incredibly consistent with tracking - 28 out of 30 days this month!"
 
-Remember: You're here to support and educate, not to replace professional medical care.`;
+Remember: You're here to support and educate with precise data insights, not to replace professional medical care.`;
   };
 
   const sendMessage = async () => {
@@ -466,6 +662,28 @@ Remember: You're here to support and educate, not to replace professional medica
               </span>
             </div>
           )}
+          
+          {/* Quick question suggestions */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              onClick={() => setInputMessage("How many times did I use my medications this month?")}
+              className="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors"
+            >
+              Medication usage this month
+            </button>
+            <button
+              onClick={() => setInputMessage("How many severe flares have I had this year?")}
+              className="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors"
+            >
+              Severe flares this year
+            </button>
+            <button
+              onClick={() => setInputMessage("What's my average severity lately?")}
+              className="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors"
+            >
+              Average severity
+            </button>
+          </div>
         </div>
       </div>
     </div>
