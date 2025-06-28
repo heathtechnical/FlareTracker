@@ -8,12 +8,15 @@ import {
   ArrowRight,
   CheckCircle,
   AlertTriangle,
+  MessageCircle,
+  Crown,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import ConditionCard from "../components/ConditionCard";
 import MedicationCard from "../components/MedicationCard";
 import CheckInSummary from "../components/CheckInSummary";
 import MedicationAlerts from "../components/MedicationAlerts";
+import PremiumAIChat from "../components/PremiumAIChat";
 import {
   getMedicationAlerts,
   getMedicationAdherenceScore,
@@ -22,6 +25,7 @@ import { format, subDays } from "date-fns";
 
 const Dashboard: React.FC = () => {
   const { user, getTodayCheckIn } = useApp();
+  const [showAIChat, setShowAIChat] = React.useState(false);
 
   if (!user) return null;
 
@@ -161,15 +165,27 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
 
-        {!todayCheckIn && (
-          <Link
-            to="/check-in"
-            className="mt-4 md:mt-0 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center transition-all duration-200"
+        <div className="flex items-center space-x-3 mt-4 md:mt-0">
+          {/* Premium AI Chat Button */}
+          <button
+            onClick={() => setShowAIChat(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
           >
-            <Calendar size={18} className="mr-2" />
-            Check-In
-          </Link>
-        )}
+            <Crown size={16} />
+            <MessageCircle size={16} />
+            <span>AI Chat</span>
+          </button>
+
+          {!todayCheckIn && (
+            <Link
+              to="/check-in"
+              className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center transition-all duration-200"
+            >
+              <Calendar size={18} className="mr-2" />
+              Check-In
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Status Cards */}
@@ -329,6 +345,11 @@ const Dashboard: React.FC = () => {
           </ul>
         </div>
       </div>
+
+      {/* Premium AI Chat Modal */}
+      {showAIChat && (
+        <PremiumAIChat onClose={() => setShowAIChat(false)} />
+      )}
     </div>
   );
 };

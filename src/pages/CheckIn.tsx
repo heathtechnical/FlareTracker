@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Save, Plus, Minus, AlertCircle, Moon, CloudRain, Utensils, Droplets, Calendar, ChevronLeft, ChevronRight, CheckCircle, Bot } from 'lucide-react';
+import { Save, Plus, Minus, AlertCircle, Moon, CloudRain, Utensils, Droplets, Calendar, ChevronLeft, ChevronRight, CheckCircle, MessageCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import SeverityScale from '../components/SeverityScale';
 import CalendarComponent from '../components/Calendar';
-import ChatGPTAssistant from '../components/ChatGPTAssistant';
+import PremiumAIChat from '../components/PremiumAIChat';
 import { CheckIn, ConditionEntry, MedicationEntry, SeverityLevel } from '../types';
 
 const CheckInPage: React.FC = () => {
@@ -16,7 +16,7 @@ const CheckInPage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [showCalendar, setShowCalendar] = useState(false);
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showAIChat, setShowAIChat] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -185,17 +185,6 @@ const CheckInPage: React.FC = () => {
     
     navigate('/dashboard');
   };
-
-  const handleAIFormUpdate = (updates: any) => {
-    setFormData(prev => ({
-      ...prev,
-      ...updates
-    }));
-  };
-
-  const handleAISaveCheckIn = () => {
-    handleSubmit(new Event('submit') as any);
-  };
   
   const updateConditionSeverity = (conditionId: string, severity: SeverityLevel) => {
     setFormData(prev => ({
@@ -362,13 +351,13 @@ const CheckInPage: React.FC = () => {
           </h1>
           
           <div className="flex items-center space-x-3">
-            {/* AI Assistant Button */}
+            {/* AI Chat Button */}
             <button
-              onClick={() => setShowAIAssistant(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              onClick={() => setShowAIChat(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
             >
-              <Bot size={18} />
-              <span>AI Assistant</span>
+              <MessageCircle size={18} />
+              <span>AI Chat</span>
             </button>
             
             {/* Date selector */}
@@ -767,14 +756,9 @@ const CheckInPage: React.FC = () => {
         ))}
       </div>
 
-      {/* ChatGPT Assistant Modal */}
-      {showAIAssistant && (
-        <ChatGPTAssistant
-          formData={formData}
-          onUpdateFormData={handleAIFormUpdate}
-          onSaveCheckIn={handleAISaveCheckIn}
-          onClose={() => setShowAIAssistant(false)}
-        />
+      {/* Premium AI Chat Modal */}
+      {showAIChat && (
+        <PremiumAIChat onClose={() => setShowAIChat(false)} />
       )}
     </div>
   );

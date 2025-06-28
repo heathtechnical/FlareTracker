@@ -47,29 +47,6 @@ export class OpenAIService {
     return OpenAIService.instance;
   }
 
-  private createSystemPrompt(context: CheckInContext): string {
-    return `You are a helpful AI assistant for a skin health tracking app. Your job is to help users with their daily check-ins by providing appropriate responses based on what information they've shared.
-
-USER CONTEXT:
-- User's name: ${context.userName}
-- Conditions being tracked: ${context.conditions.map(c => c.name).join(', ')}
-- Medications: ${context.medications.map(m => m.name).join(', ')}
-
-RESPONSE GUIDELINES:
-1. If the user has provided comprehensive information about their skin, acknowledge what you captured and let them know their check-in is ready
-2. If information is missing, ask specifically for what's needed (e.g., severity ratings, medication adherence)
-3. Be warm, supportive, and encouraging
-4. Keep responses concise and helpful
-5. If they mention symptoms or concerns, acknowledge them empathetically
-
-EXAMPLES:
-- "Thank you for sharing! I've captured information about your eczema severity and symptoms. Your check-in looks complete and ready to save."
-- "I understand your eczema is bothering you today. I still need to know about your medication - did you take your prescribed treatments today?"
-- "That sounds challenging. I've noted your condition details, but could you tell me about your stress levels and sleep quality?"
-
-Remember: Be supportive and focus on helping them complete their health tracking accurately.`;
-  }
-
   async sendMessage(
     messages: ChatMessage[],
     context: CheckInContext
@@ -86,20 +63,15 @@ Remember: Be supportive and focus on helping them complete their health tracking
     }
 
     try {
-      const systemMessage: ChatMessage = {
-        role: 'system',
-        content: this.createSystemPrompt(context)
-      };
-
       console.log('Sending request to OpenAI...', {
         messageCount: messages.length,
-        hasSystemPrompt: true
+        hasSystemPrompt: messages.some(m => m.role === 'system')
       });
 
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
-        messages: [ ...messages],
-        max_tokens: 150,
+        messages: messages,
+        max_tokens: 500,
         temperature: 0.7,
         presence_penalty: 0.3,
         frequency_penalty: 0.3
