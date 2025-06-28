@@ -19,6 +19,19 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true
+  },
+  global: {
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+        },
+      }).catch(error => {
+        console.error('Fetch error:', error);
+        throw error;
+      });
+    }
   }
 })
 
@@ -27,7 +40,7 @@ export const handleSupabaseError = (error: any) => {
   console.error('Supabase error:', error)
   
   // Check for network connectivity issues
-  if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+  if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError') || error.name === 'TypeError') {
     throw new Error('Unable to connect to Supabase. Please check your internet connection and verify your Supabase URL is correct.')
   }
   
