@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Save, Plus, Minus, AlertCircle, Moon, CloudRain, Utensils, Droplets, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Save, Plus, Minus, AlertCircle, Moon, CloudRain, Utensils, Droplets, ChevronLeft, ChevronRight, X, Camera, Upload, Trash2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import SeverityScale from './SeverityScale';
 import { CheckIn, ConditionEntry, MedicationEntry, SeverityLevel } from '../types';
@@ -18,6 +18,8 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
   const [isEditing, setIsEditing] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<Omit<CheckIn, 'id'>>({
     date: new Date().toISOString(),
@@ -78,6 +80,12 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
         photoUrl: existingCheckIn.photoUrl,
         factors: { ...existingCheckIn.factors }
       });
+      
+      // Set photo preview if existing photo URL
+      if (existingCheckIn.photoUrl) {
+        setPhotoPreview(existingCheckIn.photoUrl);
+      }
+      
       setIsEditing(true);
     } else {
       // If not, create a new one with defaults for the target date
@@ -119,9 +127,43 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
     // Reset to first step when opening
     setCurrentStep(0);
     setSubmitAttempted(false);
+    setPhotoFile(null);
+    setPhotoPreview(null);
   }, [user, isOpen, selectedDate]);
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Check file size (limit to 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Photo size must be less than 5MB');
+        return;
+      }
+      
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      
+      setPhotoFile(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPhotoPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const removePhoto = () => {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    setFormData(prev => ({ ...prev, photoUrl: undefined }));
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitAttempted(true);
     
@@ -137,9 +179,19 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
     const targetDateTime = new Date(targetDate);
     targetDateTime.setHours(12, 0, 0, 0);
     
+    let photoUrl = formData.photoUrl;
+    
+    // Handle photo upload (in a real app, you'd upload to a cloud service)
+    if (photoFile) {
+      // For demo purposes, we'll use a data URL
+      // In production, you'd upload to a service like Supabase Storage, AWS S3, etc.
+      photoUrl = photoPreview;
+    }
+    
     const checkInData = {
       ...formData,
-      date: targetDateTime.toISOString()
+      date: targetDateTime.toISOString(),
+      photoUrl
     };
     
     if (isEditing && user) {
@@ -261,8 +313,8 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
   
   if (!user || !isOpen) return null;
 
-  // Calculate total steps: conditions + lifestyle factors + notes
-  const totalSteps = user.conditions.length + 1 + 1; // conditions + lifestyle + notes
+  // Calculate total steps: conditions + lifestyle factors + notes + photo
+  const totalSteps = user.conditions.length + 1 + 1 + 1; // conditions + lifestyle + notes + photo
   const isLastStep = currentStep === totalSteps - 1;
   
   // Get current condition for condition steps
@@ -293,7 +345,7 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
       // For condition steps, severity must be selected
       return currentConditionEntry && currentConditionEntry.severity > 0;
     }
-    return true; // Lifestyle factors and notes are optional
+    return true; // Lifestyle factors, notes, and photo are optional
   };
   
   const nextStep = () => {
@@ -313,8 +365,10 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
       return currentCondition?.name || 'Condition';
     } else if (currentStep === user.conditions.length) {
       return 'Lifestyle Factors';
-    } else {
+    } else if (currentStep === user.conditions.length + 1) {
       return 'Additional Notes';
+    } else {
+      return 'Add Photo (Optional)';
     }
   };
 
@@ -640,7 +694,7 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
           )}
 
           {/* Notes step */}
-          {currentStep === totalSteps - 1 && (
+          {currentStep === user.conditions.length + 1 && (
             <div className="space-y-4">
               <p className="text-gray-600">
                 Any additional observations or notes about your skin today?
@@ -653,6 +707,88 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
                 value={formData.notes || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               ></textarea>
+            </div>
+          )}
+
+          {/* Photo step */}
+          {currentStep === totalSteps - 1 && (
+            <div className="space-y-6">
+              <p className="text-gray-600">
+                Optionally add a photo to visually track your skin condition. This can help you and your healthcare provider see changes over time.
+              </p>
+              
+              {!photoPreview ? (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
+                  <div className="space-y-4">
+                    <div className="flex justify-center">
+                      <Camera size={48} className="text-gray-400" />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="photo-upload" className="cursor-pointer">
+                        <span className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                          <Upload size={18} />
+                          <span>Choose Photo</span>
+                        </span>
+                      </label>
+                      <input
+                        id="photo-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                    </div>
+                    
+                    <p className="text-sm text-gray-500">
+                      Upload a photo (JPG, PNG, max 5MB)
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative inline-block">
+                    <img
+                      src={photoPreview}
+                      alt="Check-in photo"
+                      className="max-w-full max-h-64 rounded-lg shadow-md"
+                    />
+                    <button
+                      type="button"
+                      onClick={removePhoto}
+                      className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  
+                  <div className="flex space-x-3">
+                    <label htmlFor="photo-replace" className="cursor-pointer">
+                      <span className="inline-flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                        <Upload size={18} />
+                        <span>Replace Photo</span>
+                      </span>
+                    </label>
+                    <input
+                      id="photo-replace"
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+              )}
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <AlertCircle className="text-blue-500 mr-3 flex-shrink-0 mt-0.5" size={20} />
+                  <div className="text-sm text-blue-700">
+                    <p className="font-medium mb-1">Privacy Note</p>
+                    <p>Photos are stored securely and are only visible to you. You can remove them at any time.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

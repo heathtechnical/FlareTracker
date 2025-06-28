@@ -2,7 +2,7 @@ import React from 'react';
 import { format } from 'date-fns';
 import { SeverityLevel, CheckIn, SkinCondition, Medication } from '../types';
 import SeverityScale from './SeverityScale';
-import { Pill, CheckCircle, XCircle } from 'lucide-react';
+import { Pill, CheckCircle, XCircle, Camera } from 'lucide-react';
 
 interface CheckInSummaryProps {
   checkIn: CheckIn;
@@ -54,7 +54,24 @@ const CheckInSummary: React.FC<CheckInSummaryProps> = ({
           <h3 className="font-medium text-neutral-800">
             {format(new Date(checkIn.date), 'EEEE, MMMM d, yyyy')}
           </h3>
+          {checkIn.photoUrl && (
+            <div className="flex items-center text-sm text-neutral-500">
+              <Camera size={16} className="mr-1" />
+              <span>Photo attached</span>
+            </div>
+          )}
         </div>
+        
+        {/* Photo */}
+        {checkIn.photoUrl && !compact && (
+          <div className="mb-4">
+            <img
+              src={checkIn.photoUrl}
+              alt="Check-in photo"
+              className="w-full max-w-sm rounded-lg shadow-sm"
+            />
+          </div>
+        )}
         
         {/* Conditions */}
         {checkIn.conditionEntries.length > 0 && (
