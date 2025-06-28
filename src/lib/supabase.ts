@@ -21,10 +21,16 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true
   },
   global: {
+    headers: {
+      'apikey': supabaseAnonKey,
+      'Authorization': `Bearer ${supabaseAnonKey}`
+    },
     fetch: (url, options = {}) => {
       return fetch(url, {
         ...options,
         headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
           ...options.headers,
         },
       }).catch(error => {
