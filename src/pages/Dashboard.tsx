@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import {
   Calendar,
@@ -16,6 +16,7 @@ import ConditionCard from "../components/ConditionCard";
 import MedicationCard from "../components/MedicationCard";
 import CheckInSummary from "../components/CheckInSummary";
 import MedicationAlerts from "../components/MedicationAlerts";
+import SeveritySummaryGraph from "../components/SeveritySummaryGraph";
 import PremiumAIChat from "../components/PremiumAIChat";
 import {
   getMedicationAlerts,
@@ -32,7 +33,7 @@ const Dashboard: React.FC = () => {
   const todayCheckIn = getTodayCheckIn();
 
   // Get check-ins from the last 30 days for better data coverage
-  const recentCheckIns = useMemo(() => {
+  const recentCheckIns = React.useMemo(() => {
     const thirtyDaysAgo = subDays(new Date(), 30);
     return [...user.checkIns]
       .filter((checkIn) => new Date(checkIn.date) >= thirtyDaysAgo)
@@ -142,11 +143,11 @@ const Dashboard: React.FC = () => {
   };
 
   // Get medication alerts and adherence score
-  const medicationAlerts = useMemo(() => {
+  const medicationAlerts = React.useMemo(() => {
     return getMedicationAlerts(user.medications, user.checkIns);
   }, [user.medications, user.checkIns]);
 
-  const adherenceScore = useMemo(() => {
+  const adherenceScore = React.useMemo(() => {
     return getMedicationAdherenceScore(user.medications, user.checkIns, 7);
   }, [user.medications, user.checkIns]);
 
@@ -264,6 +265,9 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Severity Summary Graph */}
+      <SeveritySummaryGraph days={14} className="mb-6" />
 
       {/* Medication Alerts */}
       {medicationAlerts.length > 0 && (
