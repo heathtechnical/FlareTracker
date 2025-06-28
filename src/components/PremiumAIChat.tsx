@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Send, X, Bot, User, Sparkles, Crown, Lock } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { openaiService } from "../services/openaiService";
 import { useApp } from "../context/AppContext";
 import { format, subDays, differenceInDays, parseISO, startOfYear, endOfYear, isWithinInterval } from "date-fns";
@@ -45,6 +46,15 @@ export default function PremiumAIChat({ onClose }: PremiumAIChatProps) {
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   }, [inputMessage]);
+
+  // Focus input after sending message
+  const focusInput = () => {
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 100);
+  };
 
   const checkOpenAIConnection = async (): Promise<boolean> => {
     try {
@@ -92,17 +102,17 @@ export default function PremiumAIChat({ onClose }: PremiumAIChatProps) {
       await checkOpenAIConnection();
       setIsConnected(true);
 
-      const greeting = `Hi! I'm your FlareTracker AI assistant. I'm here to help you understand your skin health journey and provide supportive guidance.
+      const greeting = `Hi! I'm your **FlareTracker AI assistant**. I'm here to help you understand your skin health journey and provide supportive guidance.
 
-I can help you with:
-• Understanding patterns in your skin condition data
-• Discussing your treatment progress and trends
-• Providing general skin health information
-• Answering questions about your FlareTracker history
-• Analyzing medication usage patterns
-• Identifying flare frequency and severity trends
+## I can help you with:
+• **Understanding patterns** in your skin condition data
+• **Discussing your treatment progress** and trends
+• **Providing general skin health information**
+• **Answering questions** about your FlareTracker history
+• **Analyzing medication usage** patterns
+• **Identifying flare frequency** and severity trends
 
-Please note: I cannot provide medical advice or diagnose conditions. Always consult with healthcare professionals for medical concerns.
+> **Please note:** I cannot provide medical advice or diagnose conditions. Always consult with healthcare professionals for medical concerns.
 
 How can I help you today?`;
 
@@ -347,6 +357,8 @@ CRITICAL GUIDELINES:
 - Focus on data interpretation and general skin health education
 - Help users understand patterns and trends in their data
 - Provide specific analytics when asked (medication usage counts, flare frequencies, etc.)
+- Format your responses using Markdown for better readability
+- Use headers, lists, bold text, and other formatting to make responses clear and engaging
 
 USER CONTEXT:
 Name: ${user?.name || 'User'}
@@ -377,6 +389,15 @@ You can answer specific questions like:
 - "Show me my worst/best days"
 - "What are my monthly trends?"
 
+MARKDOWN FORMATTING GUIDELINES:
+- Use **bold** for emphasis on important numbers and insights
+- Use ## headers for main sections
+- Use bullet points (•) or numbered lists for multiple items
+- Use > blockquotes for important reminders about medical advice
+- Use `code formatting` for specific data values
+- Use tables when presenting comparative data
+- Keep formatting clean and readable
+
 RESPONSE GUIDELINES:
 1. Be warm, supportive, and understanding
 2. Provide specific data when asked (use the analytics data above)
@@ -388,14 +409,15 @@ RESPONSE GUIDELINES:
 8. Celebrate improvements and provide encouragement during difficult periods
 9. Help users understand correlations in their data (stress, sleep, weather, etc.)
 10. When providing statistics, be precise and reference the actual data
+11. Format responses with Markdown for better readability
 
 EXAMPLE RESPONSES:
-- "Looking at your data, you've used hydrocortisone cream 15 times in the last year, with 8 uses in the past month."
-- "I can see you've had 3 severe flares (severity 4-5) in the past 6 months, which is down from 7 in the previous 6 months - that's encouraging progress!"
-- "Your eczema has averaged 2.3/5 severity over the past month, compared to 3.1/5 the month before."
-- "You've been incredibly consistent with tracking - 28 out of 30 days this month!"
+- "## Medication Usage Analysis\n\nLooking at your data, you've used **hydrocortisone cream 15 times** in the last year, with **8 uses** in the past month.\n\n> Remember to follow your healthcare provider's guidance on medication usage."
+- "## Flare Pattern Insights\n\nI can see you've had **3 severe flares** (severity 4-5) in the past 6 months, which is down from **7 in the previous 6 months** - that's encouraging progress! 🎉"
+- "## Recent Severity Trends\n\nYour eczema has averaged **2.3/5 severity** over the past month, compared to **3.1/5** the month before. This shows a positive trend!"
+- "## Tracking Consistency\n\nYou've been incredibly consistent with tracking - **28 out of 30 days** this month! 👏"
 
-Remember: You're here to support and educate with precise data insights, not to replace professional medical care.`;
+Remember: You're here to support and educate with precise data insights, not to replace professional medical care. Always format responses with Markdown for clarity and engagement.`;
   };
 
   const sendMessage = async () => {
@@ -463,6 +485,7 @@ Remember: You're here to support and educate with precise data insights, not to 
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      focusInput(); // Auto-focus input after sending
     }
   };
 
@@ -471,6 +494,11 @@ Remember: You're here to support and educate with precise data insights, not to 
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const handleQuickQuestion = (question: string) => {
+    setInputMessage(question);
+    focusInput();
   };
 
   if (!isPremium) {
@@ -577,9 +605,51 @@ Remember: You're here to support and educate with precise data insights, not to 
                     <User className="w-4 h-4 mt-0.5 flex-shrink-0 opacity-80" />
                   )}
                   <div className="flex-1">
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                      {message.content}
-                    </p>
+                    {message.sender === "assistant" ? (
+                      <div className="prose prose-sm max-w-none">
+                        <ReactMarkdown
+                          components={{
+                            // Custom styling for markdown elements
+                            h1: ({ children }) => <h1 className="text-lg font-bold mb-2 text-gray-800">{children}</h1>,
+                            h2: ({ children }) => <h2 className="text-base font-semibold mb-2 text-gray-800">{children}</h2>,
+                            h3: ({ children }) => <h3 className="text-sm font-semibold mb-1 text-gray-800">{children}</h3>,
+                            p: ({ children }) => <p className="text-sm leading-relaxed mb-2 text-gray-800">{children}</p>,
+                            ul: ({ children }) => <ul className="text-sm mb-2 pl-4 text-gray-800">{children}</ul>,
+                            ol: ({ children }) => <ol className="text-sm mb-2 pl-4 text-gray-800">{children}</ol>,
+                            li: ({ children }) => <li className="mb-1 text-gray-800">{children}</li>,
+                            strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                            em: ({ children }) => <em className="italic text-gray-700">{children}</em>,
+                            code: ({ children }) => <code className="bg-gray-200 px-1 py-0.5 rounded text-xs font-mono text-gray-800">{children}</code>,
+                            blockquote: ({ children }) => (
+                              <blockquote className="border-l-4 border-blue-500 pl-3 py-1 bg-blue-50 text-sm text-blue-800 mb-2 rounded-r">
+                                {children}
+                              </blockquote>
+                            ),
+                            table: ({ children }) => (
+                              <table className="w-full text-xs border-collapse border border-gray-300 mb-2">
+                                {children}
+                              </table>
+                            ),
+                            th: ({ children }) => (
+                              <th className="border border-gray-300 px-2 py-1 bg-gray-100 font-semibold text-left">
+                                {children}
+                              </th>
+                            ),
+                            td: ({ children }) => (
+                              <td className="border border-gray-300 px-2 py-1">
+                                {children}
+                              </td>
+                            ),
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {message.content}
+                      </p>
+                    )}
                     <p
                       className={`text-xs mt-2 ${
                         message.sender === "user"
@@ -666,19 +736,19 @@ Remember: You're here to support and educate with precise data insights, not to 
           {/* Quick question suggestions */}
           <div className="mt-3 flex flex-wrap gap-2">
             <button
-              onClick={() => setInputMessage("How many times did I use my medications this month?")}
+              onClick={() => handleQuickQuestion("How many times did I use my medications this month?")}
               className="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors"
             >
               Medication usage this month
             </button>
             <button
-              onClick={() => setInputMessage("How many severe flares have I had this year?")}
+              onClick={() => handleQuickQuestion("How many severe flares have I had this year?")}
               className="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors"
             >
               Severe flares this year
             </button>
             <button
-              onClick={() => setInputMessage("What's my average severity lately?")}
+              onClick={() => handleQuickQuestion("What's my average severity lately?")}
               className="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors"
             >
               Average severity
