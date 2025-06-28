@@ -35,7 +35,7 @@ const Logo: React.FC<LogoProps> = ({
   const LogoIcon = () => (
     <div className={`${iconSizeClasses[size]} relative flex-shrink-0`}>
       <img
-        src="/image.png"
+        src="/image copy copy.png"
         alt="FlareTracker Logo"
         className="w-full h-full object-contain"
       />
