@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Send, X, Bot, User, Sparkles, Crown, Lock } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { openaiService } from "../services/openaiService";
 import { useApp } from "../context/AppContext";
 import { format, subDays, differenceInDays, parseISO, startOfYear, endOfYear, isWithinInterval } from "date-fns";
@@ -610,6 +611,7 @@ Remember: You're here to support and educate with precise data insights, not to 
                     {message.sender === "assistant" ? (
                       <div className="prose prose-sm max-w-none">
                         <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
                           components={{
                             // Custom styling for markdown elements
                             h1: ({ children }) => <h1 className="text-lg font-bold mb-2 text-gray-800">{children}</h1>,
@@ -628,19 +630,36 @@ Remember: You're here to support and educate with precise data insights, not to 
                               </blockquote>
                             ),
                             table: ({ children }) => (
-                              <table className="w-full text-xs border-collapse border border-gray-300 mb-2">
+                              <div className="overflow-x-auto mb-2">
+                                <table className="w-full text-xs border-collapse border border-gray-300">
+                                  {children}
+                                </table>
+                              </div>
+                            ),
+                            thead: ({ children }) => (
+                              <thead className="bg-gray-100">
                                 {children}
-                              </table>
+                              </thead>
+                            ),
+                            tbody: ({ children }) => (
+                              <tbody>
+                                {children}
+                              </tbody>
                             ),
                             th: ({ children }) => (
-                              <th className="border border-gray-300 px-2 py-1 bg-gray-100 font-semibold text-left">
+                              <th className="border border-gray-300 px-2 py-1 font-semibold text-left text-gray-800">
                                 {children}
                               </th>
                             ),
                             td: ({ children }) => (
-                              <td className="border border-gray-300 px-2 py-1">
+                              <td className="border border-gray-300 px-2 py-1 text-gray-700">
                                 {children}
                               </td>
+                            ),
+                            tr: ({ children }) => (
+                              <tr className="hover:bg-gray-50">
+                                {children}
+                              </tr>
                             ),
                           }}
                         >
@@ -738,10 +757,10 @@ Remember: You're here to support and educate with precise data insights, not to 
           {/* Quick question suggestions */}
           <div className="mt-3 flex flex-wrap gap-2">
             <button
-              onClick={() => handleQuickQuestion("How many times did I use my medications this month?")}
+              onClick={() => handleQuickQuestion("Show me my medication usage in a table format")}
               className="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors"
             >
-              Medication usage this month
+              Medication table
             </button>
             <button
               onClick={() => handleQuickQuestion("How many severe flares have I had this year?")}
