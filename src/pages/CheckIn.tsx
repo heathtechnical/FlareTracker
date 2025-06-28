@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, parseISO } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus, Edit, Calendar as CalendarIcon, MessageCircle, Crown } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, parseISO, subDays } from 'date-fns';
+import { ChevronLeft, ChevronRight, Plus, Edit, Calendar as CalendarIcon, MessageCircle, Crown, Download } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import CheckInDialog from '../components/CheckInDialog';
 import PremiumAIChat from '../components/PremiumAIChat';
+import HealthcareSummary from '../components/HealthcareSummary';
 import { CheckIn } from '../types';
 
 const CheckInPage: React.FC = () => {
@@ -12,6 +13,7 @@ const CheckInPage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showCheckInDialog, setShowCheckInDialog] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
+  const [showHealthcareSummary, setShowHealthcareSummary] = useState(false);
 
   // Get check-ins for the current month
   const monthCheckIns = useMemo(() => {
@@ -48,6 +50,21 @@ const CheckInPage: React.FC = () => {
     
     return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   }, [currentMonth]);
+
+  // Get summary period data (last 3 months)
+  const summaryData = useMemo(() => {
+    if (!user) return { startDate: new Date(), endDate: new Date(), checkIns: [] };
+    
+    const endDate = new Date();
+    const startDate = subDays(endDate, 90); // Last 3 months
+    
+    const periodCheckIns = user.checkIns.filter(checkIn => {
+      const checkInDate = new Date(checkIn.date);
+      return checkInDate >= startDate && checkInDate <= endDate;
+    });
+    
+    return { startDate, endDate, checkIns: periodCheckIns };
+  }, [user]);
 
   const goToPreviousMonth = () => {
     setCurrentMonth(subMonths(currentMonth, 1));
@@ -122,6 +139,26 @@ const CheckInPage: React.FC = () => {
           <p className="text-gray-600">
             View your check-in history and add new entries
           </p>
+        </div>
+        
+        <div className="flex items-center space-x-3 mt-4 sm:mt-0">
+          {/* Healthcare Summary Button */}
+          <button
+            onClick={() => setShowHealthcareSummary(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Download size={18} />
+            <span>Healthcare Summary</span>
+          </button>
+          
+          {/* AI Chat Button */}
+          <button
+            onClick={() => setShowAIChat(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
+          >
+            <MessageCircle size={16} />
+            <span>AI Chat</span>
+          </button>
         </div>
       </div>
 
@@ -313,6 +350,16 @@ const CheckInPage: React.FC = () => {
       {/* Premium AI Chat Modal */}
       {showAIChat && (
         <PremiumAIChat onClose={() => setShowAIChat(false)} />
+      )}
+
+      {/* Healthcare Summary Modal */}
+      {showHealthcareSummary && (
+        <HealthcareSummary
+          startDate={summaryData.startDate}
+          endDate={summaryData.endDate}
+          checkIns={summaryData.checkIns}
+          onClose={() => setShowHealthcareSummary(false)}
+        />
       )}
     </div>
   );
