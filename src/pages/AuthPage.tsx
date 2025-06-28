@@ -45,7 +45,7 @@ const AuthPage: React.FC = () => {
     try {
       if (mode === 'signup') {
         await signUp(formData.email, formData.password, formData.name);
-        setSuccess('Account created successfully! Welcome to Skinalytix.');
+        setSuccess('Account created successfully! Welcome to FlareTracker.');
       } else {
         await signIn(formData.email, formData.password);
         setSuccess('Welcome back!');

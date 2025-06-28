@@ -46,7 +46,7 @@ const Header: React.FC = () => {
         if (location.pathname.startsWith('/conditions/')) {
           return 'Condition Details';
         }
-        return 'Skinalytix';
+        return 'FlareTracker';
     }
   };
 

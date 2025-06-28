@@ -157,7 +157,7 @@ const Dashboard: React.FC = () => {
             Welcome back, {user.name}
           </h1>
           <p className="text-neutral-500 mt-1">
-            Track your skin health journey
+            Track your skin health journey with FlareTracker
           </p>
         </div>
 

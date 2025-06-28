@@ -13,7 +13,7 @@ const Layout: React.FC = () => {
       <div className="flex items-center justify-center h-screen bg-neutral-50">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-neutral-600">Loading SkinTrack...</p>
+          <p className="mt-4 text-neutral-600">Loading FlareTracker...</p>
         </div>
       </div>
     );
