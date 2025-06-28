@@ -124,28 +124,6 @@ const CheckInPage: React.FC = () => {
           </p>
         </div>
         
-        <div className="flex items-center space-x-3 mt-4 sm:mt-0">
-          {/* AI Chat Button */}
-          <button
-            onClick={() => setShowAIChat(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
-          >
-            <Crown size={16} />
-            <MessageCircle size={16} />
-            <span>AI Chat</span>
-          </button>
-          
-          {/* Today Button */}
-          <button
-            onClick={() => handleDateClick(new Date())}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus size={18} />
-            <span>Today's Check-in</span>
-          </button>
-        </div>
-      </div>
-
       {/* Calendar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {/* Calendar Header */}
