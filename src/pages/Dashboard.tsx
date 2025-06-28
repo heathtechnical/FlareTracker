@@ -282,7 +282,7 @@ const Dashboard: React.FC = () => {
               Medication Alerts
             </h2>
             <Link
-              to="/medications"
+              to="/app/medications"
               className="text-sm text-primary-600 hover:text-primary-700 flex items-center"
             >
               Manage Medications
@@ -342,7 +342,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex self-start sm:self-auto">
                     <Link
-                      to={`/check-in?date=${checkIn.date.split("T")[0]}`}
+                      to={`/app/check-in?date=${checkIn.date.split("T")[0]}`}
                       className="text-primary-600 hover:text-primary-700"
                     >
                       <ArrowRight size={18} />

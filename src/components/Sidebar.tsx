@@ -10,7 +10,6 @@ import {
   LogOut
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import Logo from './Logo';
 
 const Sidebar: React.FC = () => {
   const { signOut } = useApp();
@@ -33,31 +32,36 @@ const Sidebar: React.FC = () => {
   return (
     <aside className="hidden md:flex md:flex-col w-64 bg-white border-r border-neutral-200 p-4">
       <div className="flex items-center mb-8 px-2">
-        <Logo size="lg" />
+        <img
+          src="/image copy copy.png"
+          alt="FlareTracker Logo"
+          className="w-8 h-8 object-contain mr-3"
+        />
+        <span className="text-xl font-bold text-neutral-800">FlareTracker</span>
       </div>
       
       <nav className="flex-1 space-y-1">
-        <NavLink to="/dashboard" className={navLinkClasses}>
+        <NavLink to="/app/dashboard" className={navLinkClasses}>
           <Home size={20} />
           <span>Dashboard</span>
         </NavLink>
         
-        <NavLink to="/check-in" className={navLinkClasses}>
+        <NavLink to="/app/check-in" className={navLinkClasses}>
           <Calendar size={20} />
           <span>History</span>
         </NavLink>
         
-        <NavLink to="/trends" className={navLinkClasses}>
+        <NavLink to="/app/trends" className={navLinkClasses}>
           <TrendingUp size={20} />
           <span>Insights</span>
         </NavLink>
         
-        <NavLink to="/conditions" className={navLinkClasses}>
+        <NavLink to="/app/conditions" className={navLinkClasses}>
           <Layers size={20} />
           <span>Conditions</span>
         </NavLink>
         
-        <NavLink to="/medications" className={navLinkClasses}>
+        <NavLink to="/app/medications" className={navLinkClasses}>
           <Pill size={20} />
           <span>Medications</span>
         </NavLink>
@@ -65,7 +69,7 @@ const Sidebar: React.FC = () => {
       </nav>
       
       <div className="mt-auto pt-4 border-t border-neutral-200 space-y-1">
-        <NavLink to="/settings" className={navLinkClasses}>
+        <NavLink to="/app/settings" className={navLinkClasses}>
           <Settings size={20} />
           <span>Settings</span>
         </NavLink>

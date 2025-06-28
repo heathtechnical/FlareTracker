@@ -13,7 +13,6 @@ import {
   LogOut
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import Logo from './Logo';
 
 const Header: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -30,20 +29,20 @@ const Header: React.FC = () => {
 
   const getPageTitle = () => {
     switch (location.pathname) {
-      case '/dashboard':
+      case '/app/dashboard':
         return 'Dashboard';
-      case '/check-in':
+      case '/app/check-in':
         return 'Daily Check-In';
-      case '/trends':
+      case '/app/trends':
         return 'Trends & Analysis';
-      case '/conditions':
+      case '/app/conditions':
         return 'My Conditions';
-      case '/medications':
+      case '/app/medications':
         return 'My Medications';
-      case '/settings':
+      case '/app/settings':
         return 'Settings';
       default:
-        if (location.pathname.startsWith('/conditions/')) {
+        if (location.pathname.startsWith('/app/conditions/')) {
           return 'Condition Details';
         }
         return 'FlareTracker';
@@ -97,7 +96,14 @@ const Header: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-neutral-900 bg-opacity-50 md:hidden">
           <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-white shadow-lg">
             <div className="flex items-center justify-between p-4 border-b border-neutral-200">
-              <Logo size="md" />
+              <div className="flex items-center space-x-3">
+                <img
+                  src="/image copy copy.png"
+                  alt="FlareTracker Logo"
+                  className="w-8 h-8 object-contain"
+                />
+                <span className="text-xl font-bold text-neutral-800">FlareTracker</span>
+              </div>
               <button 
                 className="text-neutral-600 focus:outline-none" 
                 onClick={closeMobileMenu}
@@ -107,32 +113,32 @@ const Header: React.FC = () => {
             </div>
             
             <nav className="mt-2">
-              <NavLink to="/dashboard" className={mobileNavLinkClasses} onClick={closeMobileMenu}>
+              <NavLink to="/app/dashboard" className={mobileNavLinkClasses} onClick={closeMobileMenu}>
                 <Home size={20} />
                 <span>Dashboard</span>
               </NavLink>
               
-              <NavLink to="/check-in" className={mobileNavLinkClasses} onClick={closeMobileMenu}>
+              <NavLink to="/app/check-in" className={mobileNavLinkClasses} onClick={closeMobileMenu}>
                 <Calendar size={20} />
                 <span>Daily Check-In</span>
               </NavLink>
               
-              <NavLink to="/trends" className={mobileNavLinkClasses} onClick={closeMobileMenu}>
+              <NavLink to="/app/trends" className={mobileNavLinkClasses} onClick={closeMobileMenu}>
                 <TrendingUp size={20} />
                 <span>Trends</span>
               </NavLink>
               
-              <NavLink to="/conditions" className={mobileNavLinkClasses} onClick={closeMobileMenu}>
+              <NavLink to="/app/conditions" className={mobileNavLinkClasses} onClick={closeMobileMenu}>
                 <Layers size={20} />
                 <span>Conditions</span>
               </NavLink>
               
-              <NavLink to="/medications" className={mobileNavLinkClasses} onClick={closeMobileMenu}>
+              <NavLink to="/app/medications" className={mobileNavLinkClasses} onClick={closeMobileMenu}>
                 <Pill size={20} />
                 <span>Medications</span>
               </NavLink>
               
-              <NavLink to="/settings" className={mobileNavLinkClasses} onClick={closeMobileMenu}>
+              <NavLink to="/app/settings" className={mobileNavLinkClasses} onClick={closeMobileMenu}>
                 <Settings size={20} />
                 <span>Settings</span>
               </NavLink>
