@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   MessageCircle,
   Crown,
+  Plus,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import ConditionCard from "../components/ConditionCard";
@@ -18,6 +19,7 @@ import CheckInSummary from "../components/CheckInSummary";
 import MedicationAlerts from "../components/MedicationAlerts";
 import SeveritySummaryGraph from "../components/SeveritySummaryGraph";
 import PremiumAIChat from "../components/PremiumAIChat";
+import CheckInDialog from "../components/CheckInDialog";
 import {
   getMedicationAlerts,
   getMedicationAdherenceScore,
@@ -27,6 +29,7 @@ import { format, subDays } from "date-fns";
 const Dashboard: React.FC = () => {
   const { user, getTodayCheckIn } = useApp();
   const [showAIChat, setShowAIChat] = React.useState(false);
+  const [showCheckInDialog, setShowCheckInDialog] = React.useState(false);
 
   if (!user) return null;
 
@@ -154,6 +157,11 @@ const Dashboard: React.FC = () => {
   const currentStreak = calculateStreak();
   const overallTrend = calculateOverallTrend();
 
+  const handleCheckInSuccess = () => {
+    // Refresh the page or update state as needed
+    window.location.reload();
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -167,25 +175,24 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-3 mt-4 md:mt-0">
+          {/* Primary Check-in Button */}
+          <button
+            onClick={() => setShowCheckInDialog(true)}
+            className="flex items-center space-x-2 px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-all duration-200 font-medium shadow-sm hover:shadow-md"
+          >
+            <Plus size={18} />
+            <span>{todayCheckIn ? 'Edit Check-in' : 'Daily Check-in'}</span>
+          </button>
+
           {/* Premium AI Chat Button */}
           <button
             onClick={() => setShowAIChat(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
+            className="flex items-center space-x-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-sm hover:shadow-md"
           >
             <Crown size={16} />
             <MessageCircle size={16} />
             <span>AI Chat</span>
           </button>
-
-          {!todayCheckIn && (
-            <Link
-              to="/check-in"
-              className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center transition-all duration-200"
-            >
-              <Calendar size={18} className="mr-2" />
-              Check-In
-            </Link>
-          )}
         </div>
       </div>
 
@@ -296,13 +303,13 @@ const Dashboard: React.FC = () => {
             <h2 className="text-lg font-semibold text-neutral-800">
               Today's Check-In
             </h2>
-            <Link
-              to="/check-in"
+            <button
+              onClick={() => setShowCheckInDialog(true)}
               className="text-sm text-primary-600 hover:text-primary-700 flex items-center"
             >
               Edit
               <ArrowRight size={16} className="ml-1" />
-            </Link>
+            </button>
           </div>
 
           <CheckInSummary
@@ -354,6 +361,13 @@ const Dashboard: React.FC = () => {
       {showAIChat && (
         <PremiumAIChat onClose={() => setShowAIChat(false)} />
       )}
+
+      {/* Check-in Dialog */}
+      <CheckInDialog
+        isOpen={showCheckInDialog}
+        onClose={() => setShowCheckInDialog(false)}
+        onSuccess={handleCheckInSuccess}
+      />
     </div>
   );
 };
