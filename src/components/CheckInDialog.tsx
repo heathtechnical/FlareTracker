@@ -180,6 +180,8 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
     targetDateTime.setHours(12, 0, 0, 0);
     
     let photoUrl = formData.photoUrl;
+
+    console.log(photoUrl);
     
     // Handle photo upload (in a real app, you'd upload to a cloud service)
     if (photoFile) {
@@ -714,7 +716,7 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
           {currentStep === totalSteps - 1 && (
             <div className="space-y-6">
               <p className="text-gray-600">
-                Optionally add a photo to visually track your skin condition. This can help you and your healthcare provider see changes over time.
+                Optionally add a photo to visually track your skin condition.
               </p>
               
               {!photoPreview ? (
