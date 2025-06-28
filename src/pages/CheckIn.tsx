@@ -123,7 +123,8 @@ const CheckInPage: React.FC = () => {
             View your check-in history and add new entries
           </p>
         </div>
-        
+      </div>
+
       {/* Calendar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {/* Calendar Header */}
