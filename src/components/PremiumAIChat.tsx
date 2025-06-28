@@ -105,12 +105,12 @@ export default function PremiumAIChat({ onClose }: PremiumAIChatProps) {
       const greeting = `Hi! I'm your **FlareTracker AI assistant**. I'm here to help you understand your skin health journey and provide supportive guidance.
 
 ## I can help you with:
-• **Understanding patterns** in your skin condition data
-• **Discussing your treatment progress** and trends
-• **Providing general skin health information**
-• **Answering questions** about your FlareTracker history
-• **Analyzing medication usage** patterns
-• **Identifying flare frequency** and severity trends
+  * **Understanding patterns** in your skin condition data
+  * **Discussing your treatment progress** and trends
+  * **Providing general skin health information**
+  * **Answering questions** about your FlareTracker history
+  * **Analyzing medication usage** patterns
+  * **Identifying flare frequency** and severity trends
 
 > **Please note:** I cannot provide medical advice or diagnose conditions. Always consult with healthcare professionals for medical concerns.
 
