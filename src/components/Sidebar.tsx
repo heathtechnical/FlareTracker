@@ -44,7 +44,7 @@ const Sidebar: React.FC = () => {
         
         <NavLink to="/check-in" className={navLinkClasses}>
           <Calendar size={20} />
-          <span>Check-In</span>
+          <span>History</span>
         </NavLink>
         
         <NavLink to="/trends" className={navLinkClasses}>
