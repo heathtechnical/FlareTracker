@@ -44,15 +44,45 @@ const Logo: React.FC<LogoProps> = ({
         <circle
           cx="50"
           cy="50"
-          r="48"
+          r="46"
+          stroke="#EF7674"
+          strokeWidth="8"
+          fill="none"
+        />
+        
+        {/* Main flame/drop shape - outermost */}
+        <path
+          d="M50 15 C50 15, 30 30, 30 50 C30 65, 40 75, 50 75 C60 75, 70 65, 70 50 C70 30, 50 15, 50 15 Z"
           stroke="#EF7674"
           strokeWidth="4"
           fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
         
-        {/* Flame/drop shape - multiple nested curves */}
+        {/* Second flame layer */}
         <path
-          d="M50 20 C35 35, 35 50, 50 65 C65 50, 65 35, 50 20 Z"
+          d="M50 22 C50 22, 35 35, 35 50 C35 62, 42 68, 50 68 C58 68, 65 62, 65 50 C65 35, 50 22, 50 22 Z"
+          stroke="#EF7674"
+          strokeWidth="4"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        
+        {/* Third flame layer */}
+        <path
+          d="M50 29 C50 29, 40 40, 40 50 C40 58, 44 62, 50 62 C56 62, 60 58, 60 50 C60 40, 50 29, 50 29 Z"
+          stroke="#EF7674"
+          strokeWidth="4"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        
+        {/* Inner flame/drop core */}
+        <path
+          d="M50 36 C50 36, 45 44, 45 50 C45 54, 47 56, 50 56 C53 56, 55 54, 55 50 C55 44, 50 36, 50 36 Z"
           stroke="#EF7674"
           strokeWidth="3"
           fill="none"
@@ -60,32 +90,13 @@ const Logo: React.FC<LogoProps> = ({
           strokeLinejoin="round"
         />
         
-        <path
-          d="M50 28 C40 40, 40 50, 50 60 C60 50, 60 40, 50 28 Z"
-          stroke="#EF7674"
-          strokeWidth="3"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        
-        <path
-          d="M50 36 C45 45, 45 50, 50 55 C55 50, 55 45, 50 36 Z"
-          stroke="#EF7674"
-          strokeWidth="3"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        
-        {/* Inner drop/flame core */}
-        <path
-          d="M50 44 C48 47, 48 50, 50 52 C52 50, 52 47, 50 44 Z"
-          stroke="#EF7674"
-          strokeWidth="2"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+        {/* Innermost drop */}
+        <ellipse
+          cx="50"
+          cy="50"
+          rx="3"
+          ry="4"
+          fill="#EF7674"
         />
       </svg>
     </div>
