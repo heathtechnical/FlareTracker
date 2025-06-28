@@ -347,6 +347,8 @@ How can I help you today?`;
     const daysTracking = totalCheckIns > 0 ? 
       Math.ceil((new Date().getTime() - new Date(user?.checkIns?.[user.checkIns.length - 1]?.date || new Date()).getTime()) / (1000 * 60 * 60 * 24)) : 0;
 
+    const backtick = '`';
+
     return `You are a supportive AI assistant for FlareTracker, a skin health tracking app. You help users understand their skin health journey through their tracked data.
 
 CRITICAL GUIDELINES:
@@ -394,7 +396,7 @@ MARKDOWN FORMATTING GUIDELINES:
 - Use ## headers for main sections
 - Use bullet points (•) or numbered lists for multiple items
 - Use > blockquotes for important reminders about medical advice
-- Use `code formatting` for specific data values
+- Use ${backtick}code formatting${backtick} for specific data values
 - Use tables when presenting comparative data
 - Keep formatting clean and readable
 
