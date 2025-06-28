@@ -6,6 +6,7 @@ import { medicationService } from '../services/medicationService';
 import { checkInService } from '../services/checkInService';
 import { userService } from '../services/userService';
 import { User, SkinCondition, Medication, CheckIn } from '../types';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface AppContextType {
   user: User | null;
@@ -90,15 +91,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const signIn = async (email: string, password: string) => {
     await authSignIn(email, password);
+    // Navigation will be handled by the LoginPage component after successful auth
   };
 
   const signUp = async (email: string, password: string, name: string) => {
     await authSignUp(email, password, name);
+    // Navigation will be handled by the LoginPage component after successful auth
   };
 
   const signOut = async () => {
     await authSignOut();
     setUser(null);
+    // Redirect to landing page after sign out
+    window.location.href = '/';
   };
 
   const addCondition = async (conditionData: Omit<SkinCondition, 'id' | 'createdAt'>) => {

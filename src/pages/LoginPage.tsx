@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Eye, EyeOff, CheckCircle, XCircle, Loader, AlertTriangle, Info, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const LoginPage: React.FC = () => {
-  const { signIn, signUp } = useApp();
+  const { signIn, signUp, isAuthenticated } = useApp();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -16,6 +17,13 @@ const LoginPage: React.FC = () => {
     password: '',
     name: ''
   });
+
+  // Redirect to app if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/app/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,15 +53,22 @@ const LoginPage: React.FC = () => {
     try {
       if (mode === 'signup') {
         await signUp(formData.email, formData.password, formData.name);
-        setSuccess('Account created successfully! Welcome to FlareTracker.');
+        setSuccess('Account created successfully! Redirecting to your dashboard...');
+        // Wait a moment for the success message to show, then navigate
+        setTimeout(() => {
+          navigate('/app/dashboard', { replace: true });
+        }, 1500);
       } else {
         await signIn(formData.email, formData.password);
-        setSuccess('Welcome back!');
+        setSuccess('Welcome back! Redirecting to your dashboard...');
+        // Wait a moment for the success message to show, then navigate
+        setTimeout(() => {
+          navigate('/app/dashboard', { replace: true });
+        }, 1500);
       }
     } catch (err: any) {
       console.error('Authentication error:', err);
       setError(err.message || 'An unexpected error occurred');
-    } finally {
       setLoading(false);
     }
   };
@@ -141,7 +156,7 @@ const LoginPage: React.FC = () => {
           )}
 
           {/* First Time User Info */}
-          {mode === 'signin' && !error && (
+          {mode === 'signin' && !error && !success && (
             <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start">
               <Info className="text-blue-500 mr-3 flex-shrink-0 mt-0.5" size={20} />
               <div className="text-sm text-blue-700">
@@ -256,7 +271,7 @@ const LoginPage: React.FC = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || success}
               className="w-full flex items-center justify-center px-4 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
               {loading ? (
@@ -270,9 +285,11 @@ const LoginPage: React.FC = () => {
               )}
               {loading 
                 ? 'Please wait...' 
-                : mode === 'signin' 
-                  ? 'Sign In' 
-                  : 'Join Beta Program'
+                : success
+                  ? 'Redirecting...'
+                  : mode === 'signin' 
+                    ? 'Sign In' 
+                    : 'Join Beta Program'
               }
             </button>
           </form>
@@ -285,6 +302,7 @@ const LoginPage: React.FC = () => {
                 type="button"
                 onClick={toggleMode}
                 className="ml-1 text-primary-600 hover:text-primary-700 font-medium"
+                disabled={loading || success}
               >
                 {mode === 'signin' ? 'Join beta program' : 'Sign in'}
               </button>
