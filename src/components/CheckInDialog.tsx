@@ -9,10 +9,11 @@ interface CheckInDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  selectedDate?: Date; // New prop for the selected date
 }
 
-const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { user, addCheckIn, updateCheckIn, getTodayCheckIn } = useApp();
+const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSuccess, selectedDate }) => {
+  const { user, addCheckIn, updateCheckIn } = useApp();
   
   const [isEditing, setIsEditing] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -28,12 +29,19 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
   useEffect(() => {
     if (!user || !isOpen) return;
     
-    // Check if there's already a check-in for today
-    const todayCheckIn = getTodayCheckIn();
+    // Use selectedDate if provided, otherwise use today
+    const targetDate = selectedDate || new Date();
+    const targetDateString = format(targetDate, 'yyyy-MM-dd');
     
-    if (todayCheckIn) {
+    // Check if there's already a check-in for the target date
+    const existingCheckIn = user.checkIns.find(checkIn => {
+      const checkInDate = format(new Date(checkIn.date), 'yyyy-MM-dd');
+      return checkInDate === targetDateString;
+    });
+    
+    if (existingCheckIn) {
       // If there is an existing check-in, load it for editing
-      const existingConditionIds = todayCheckIn.conditionEntries.map(entry => entry.conditionId);
+      const existingConditionIds = existingCheckIn.conditionEntries.map(entry => entry.conditionId);
       const missingConditions = user.conditions.filter(condition => 
         !existingConditionIds.includes(condition.id)
       );
@@ -52,7 +60,7 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
         )
       );
       
-      const existingMedicationIds = todayCheckIn.medicationEntries.map(entry => entry.medicationId);
+      const existingMedicationIds = existingCheckIn.medicationEntries.map(entry => entry.medicationId);
       const missingMedications = conditionMedications.filter(med => 
         !existingMedicationIds.includes(med.id)
       );
@@ -63,16 +71,16 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
       }));
       
       setFormData({
-        date: todayCheckIn.date,
-        conditionEntries: [...todayCheckIn.conditionEntries, ...additionalConditionEntries],
-        medicationEntries: [...todayCheckIn.medicationEntries, ...additionalMedicationEntries],
-        notes: todayCheckIn.notes,
-        photoUrl: todayCheckIn.photoUrl,
-        factors: { ...todayCheckIn.factors }
+        date: existingCheckIn.date,
+        conditionEntries: [...existingCheckIn.conditionEntries, ...additionalConditionEntries],
+        medicationEntries: [...existingCheckIn.medicationEntries, ...additionalMedicationEntries],
+        notes: existingCheckIn.notes,
+        photoUrl: existingCheckIn.photoUrl,
+        factors: { ...existingCheckIn.factors }
       });
       setIsEditing(true);
     } else {
-      // If not, create a new one with defaults for today
+      // If not, create a new one with defaults for the target date
       const defaultConditionEntries: ConditionEntry[] = user.conditions.map(condition => ({
         conditionId: condition.id,
         severity: 0 as SeverityLevel,
@@ -91,12 +99,12 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
         taken: false
       }));
       
-      // Set the date to today
-      const today = new Date();
-      today.setHours(12, 0, 0, 0);
+      // Set the date to the target date
+      const targetDateTime = new Date(targetDate);
+      targetDateTime.setHours(12, 0, 0, 0);
       
       setFormData({
-        date: today.toISOString(),
+        date: targetDateTime.toISOString(),
         conditionEntries: defaultConditionEntries,
         medicationEntries: defaultMedicationEntries,
         factors: {
@@ -111,7 +119,7 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
     // Reset to first step when opening
     setCurrentStep(0);
     setSubmitAttempted(false);
-  }, [user, isOpen, getTodayCheckIn]);
+  }, [user, isOpen, selectedDate]);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,17 +132,22 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
       return;
     }
     
-    // Use today's date for the check-in
-    const today = new Date();
-    today.setHours(12, 0, 0, 0);
+    // Use the target date for the check-in
+    const targetDate = selectedDate || new Date();
+    const targetDateTime = new Date(targetDate);
+    targetDateTime.setHours(12, 0, 0, 0);
     
     const checkInData = {
       ...formData,
-      date: today.toISOString()
+      date: targetDateTime.toISOString()
     };
     
     if (isEditing && user) {
-      const existingCheckIn = getTodayCheckIn();
+      const targetDateString = format(targetDate, 'yyyy-MM-dd');
+      const existingCheckIn = user.checkIns.find(checkIn => {
+        const checkInDate = format(new Date(checkIn.date), 'yyyy-MM-dd');
+        return checkInDate === targetDateString;
+      });
       
       if (existingCheckIn) {
         updateCheckIn({
@@ -305,6 +318,9 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
     }
   };
 
+  // Get the display date
+  const displayDate = selectedDate || new Date();
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="w-full max-w-4xl max-h-[90vh] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col">
@@ -312,10 +328,10 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
             <h2 className="text-xl font-semibold text-gray-800">
-              {isEditing ? "Edit Today's Check-in" : "Daily Check-in"}
+              {isEditing ? "Edit Check-in" : "Daily Check-in"}
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              {format(new Date(), 'EEEE, MMMM d, yyyy')}
+              {format(displayDate, 'EEEE, MMMM d, yyyy')}
             </p>
           </div>
           <button

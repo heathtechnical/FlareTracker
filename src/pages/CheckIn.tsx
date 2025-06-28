@@ -1,760 +1,335 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { format } from 'date-fns';
-import { Save, Plus, Minus, AlertCircle, Moon, CloudRain, Utensils, Droplets, Calendar, ChevronLeft, ChevronRight, CheckCircle, MessageCircle } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, parseISO } from 'date-fns';
+import { ChevronLeft, ChevronRight, Plus, Edit, Calendar as CalendarIcon, MessageCircle, Crown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import SeverityScale from '../components/SeverityScale';
-import CalendarComponent from '../components/Calendar';
+import CheckInDialog from '../components/CheckInDialog';
 import PremiumAIChat from '../components/PremiumAIChat';
-import { CheckIn, ConditionEntry, MedicationEntry, SeverityLevel } from '../types';
+import { CheckIn } from '../types';
 
 const CheckInPage: React.FC = () => {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { user, addCheckIn, updateCheckIn, getTodayCheckIn } = useApp();
-  
-  const [isEditing, setIsEditing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [showCalendar, setShowCalendar] = useState(false);
+  const { user } = useApp();
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showCheckInDialog, setShowCheckInDialog] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [submitAttempted, setSubmitAttempted] = useState(false);
-  const calendarRef = useRef<HTMLDivElement>(null);
-  
-  const [formData, setFormData] = useState<Omit<CheckIn, 'id'>>({
-    date: new Date().toISOString(),
-    conditionEntries: [],
-    medicationEntries: [],
-    factors: {}
-  });
-  
-  // Close calendar when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
-        setShowCalendar(false);
-      }
-    };
 
-    if (showCalendar) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showCalendar]);
-  
-  useEffect(() => {
-    if (!user) return;
+  // Get check-ins for the current month
+  const monthCheckIns = useMemo(() => {
+    if (!user) return new Map();
     
-    // Check if we're editing a specific date from URL params
-    const dateParam = searchParams.get('date');
-    const targetDate = dateParam ? new Date(dateParam) : new Date();
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
     
-    // Set the selected date for the date picker
-    setSelectedDate(format(targetDate, 'yyyy-MM-dd'));
+    const checkInsMap = new Map<string, CheckIn>();
     
-    // Find existing check-in for the target date
-    const existingCheckIn = user.checkIns.find(checkIn => {
-      const checkInDate = new Date(checkIn.date);
-      const targetDateString = format(targetDate, 'yyyy-MM-dd');
-      const checkInDateString = format(checkInDate, 'yyyy-MM-dd');
-      return checkInDateString === targetDateString;
+    user.checkIns.forEach(checkIn => {
+      const checkInDate = parseISO(checkIn.date);
+      if (checkInDate >= monthStart && checkInDate <= monthEnd) {
+        const dateKey = format(checkInDate, 'yyyy-MM-dd');
+        checkInsMap.set(dateKey, checkIn);
+      }
     });
     
-    if (existingCheckIn) {
-      // If there is an existing check-in, load it for editing
-      const existingConditionIds = existingCheckIn.conditionEntries.map(entry => entry.conditionId);
-      const missingConditions = user.conditions.filter(condition => 
-        !existingConditionIds.includes(condition.id)
-      );
-      
-      // Add missing conditions with default values (no severity selected)
-      const additionalConditionEntries: ConditionEntry[] = missingConditions.map(condition => ({
-        conditionId: condition.id,
-        severity: 0 as SeverityLevel,
-        symptoms: []
-      }));
-      
-      // Get medications for conditions and create entries
-      const conditionMedications = user.medications.filter(med => 
-        med.active && user.conditions.some(condition => 
-          med.conditionIds.includes(condition.id)
-        )
-      );
-      
-      const existingMedicationIds = existingCheckIn.medicationEntries.map(entry => entry.medicationId);
-      const missingMedications = conditionMedications.filter(med => 
-        !existingMedicationIds.includes(med.id)
-      );
-      
-      const additionalMedicationEntries: MedicationEntry[] = missingMedications.map(medication => ({
-        medicationId: medication.id,
-        taken: false
-      }));
-      
-      setFormData({
-        date: existingCheckIn.date,
-        conditionEntries: [...existingCheckIn.conditionEntries, ...additionalConditionEntries],
-        medicationEntries: [...existingCheckIn.medicationEntries, ...additionalMedicationEntries],
-        notes: existingCheckIn.notes,
-        photoUrl: existingCheckIn.photoUrl,
-        factors: { ...existingCheckIn.factors }
-      });
-      setIsEditing(true);
+    return checkInsMap;
+  }, [user, currentMonth]);
+
+  // Generate calendar days
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    
+    // Get the start of the calendar (including days from previous month)
+    const calendarStart = new Date(monthStart);
+    calendarStart.setDate(calendarStart.getDate() - monthStart.getDay());
+    
+    // Get the end of the calendar (including days from next month)
+    const calendarEnd = new Date(monthEnd);
+    calendarEnd.setDate(calendarEnd.getDate() + (6 - monthEnd.getDay()));
+    
+    return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  }, [currentMonth]);
+
+  const goToPreviousMonth = () => {
+    setCurrentMonth(subMonths(currentMonth, 1));
+  };
+
+  const goToNextMonth = () => {
+    setCurrentMonth(addMonths(currentMonth, 1));
+  };
+
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+    setShowCheckInDialog(true);
+  };
+
+  const handleCheckInSuccess = () => {
+    setShowCheckInDialog(false);
+    setSelectedDate(null);
+  };
+
+  const getCheckInForDate = (date: Date): CheckIn | undefined => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    return monthCheckIns.get(dateKey);
+  };
+
+  const getDayClasses = (date: Date) => {
+    const baseClasses = "relative w-full h-24 p-2 border border-gray-200 transition-all duration-200 cursor-pointer";
+    const checkIn = getCheckInForDate(date);
+    const isCurrentMonth = isSameMonth(date, currentMonth);
+    const isTodayDate = isToday(date);
+    
+    let classes = baseClasses;
+    
+    if (!isCurrentMonth) {
+      classes += " bg-gray-50 text-gray-400";
+    } else if (isTodayDate) {
+      classes += " bg-blue-50 border-blue-200";
     } else {
-      // If not, create a new one with defaults for the selected date
-      const defaultConditionEntries: ConditionEntry[] = user.conditions.map(condition => ({
-        conditionId: condition.id,
-        severity: 0 as SeverityLevel,
-        symptoms: []
-      }));
-      
-      // Get medications for conditions only
-      const conditionMedications = user.medications.filter(med => 
-        med.active && user.conditions.some(condition => 
-          med.conditionIds.includes(condition.id)
-        )
-      );
-      
-      const defaultMedicationEntries: MedicationEntry[] = conditionMedications.map(medication => ({
-        medicationId: medication.id,
-        taken: false
-      }));
-      
-      // Set the date to the target date
-      const targetDateTime = new Date(targetDate);
-      targetDateTime.setHours(12, 0, 0, 0);
-      
-      setFormData({
-        date: targetDateTime.toISOString(),
-        conditionEntries: defaultConditionEntries,
-        medicationEntries: defaultMedicationEntries,
-        factors: {
-          stress: 0 as SeverityLevel,
-          sleep: 0 as SeverityLevel,
-          water: 0 as SeverityLevel
-        }
-      });
-      setIsEditing(false);
-    }
-  }, [user, searchParams]);
-  
-  const handleDateSelect = (newDate: Date) => {
-    const dateString = format(newDate, 'yyyy-MM-dd');
-    setSelectedDate(dateString);
-    setShowCalendar(false);
-    navigate(`/check-in?date=${dateString}`);
-  };
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitAttempted(true);
-    
-    // Validate that all conditions have severity selected (not 0)
-    const unratedConditions = formData.conditionEntries.filter(entry => entry.severity === 0);
-    if (unratedConditions.length > 0) {
-      alert('Please rate the severity for all conditions before saving.');
-      return;
+      classes += " bg-white hover:bg-gray-50";
     }
     
-    // Use the selected date for the check-in
-    const selectedDateTime = new Date(selectedDate);
-    selectedDateTime.setHours(12, 0, 0, 0);
-    
-    const checkInData = {
-      ...formData,
-      date: selectedDateTime.toISOString()
-    };
-    
-    if (isEditing && user) {
-      const existingCheckIn = user.checkIns.find(checkIn => {
-        const checkInDate = new Date(checkIn.date);
-        const selectedDateString = format(selectedDateTime, 'yyyy-MM-dd');
-        const checkInDateString = format(checkInDate, 'yyyy-MM-dd');
-        return checkInDateString === selectedDateString;
-      });
-      
-      if (existingCheckIn) {
-        updateCheckIn({
-          ...checkInData,
-          id: existingCheckIn.id
-        });
-      }
-    } else {
-      addCheckIn(checkInData);
+    if (checkIn) {
+      classes += " border-l-4 border-l-green-500";
     }
     
-    navigate('/dashboard');
+    return classes;
   };
-  
-  const updateConditionSeverity = (conditionId: string, severity: SeverityLevel) => {
-    setFormData(prev => ({
-      ...prev,
-      conditionEntries: prev.conditionEntries.map(entry => 
-        entry.conditionId === conditionId 
-          ? { ...entry, severity } 
-          : entry
-      )
-    }));
+
+  const getAverageSeverity = (checkIn: CheckIn): number => {
+    if (checkIn.conditionEntries.length === 0) return 0;
+    
+    const totalSeverity = checkIn.conditionEntries.reduce((sum, entry) => sum + entry.severity, 0);
+    return totalSeverity / checkIn.conditionEntries.length;
   };
-  
-  const updateConditionSymptoms = (conditionId: string, symptom: string, isChecked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      conditionEntries: prev.conditionEntries.map(entry => 
-        entry.conditionId === conditionId 
-          ? { 
-              ...entry, 
-              symptoms: isChecked 
-                ? [...entry.symptoms, symptom]
-                : entry.symptoms.filter(s => s !== symptom)
-            } 
-          : entry
-      )
-    }));
+
+  const getSeverityColor = (severity: number): string => {
+    if (severity === 0) return 'bg-gray-300';
+    if (severity <= 1.5) return 'bg-green-500';
+    if (severity <= 2.5) return 'bg-yellow-500';
+    if (severity <= 3.5) return 'bg-orange-500';
+    if (severity <= 4.5) return 'bg-red-500';
+    return 'bg-red-700';
   };
-  
-  const updateConditionNotes = (conditionId: string, notes: string) => {
-    setFormData(prev => ({
-      ...prev,
-      conditionEntries: prev.conditionEntries.map(entry => 
-        entry.conditionId === conditionId 
-          ? { ...entry, notes } 
-          : entry
-      )
-    }));
-  };
-  
-  const updateMedicationTaken = (medicationId: string, taken: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      medicationEntries: prev.medicationEntries.map(entry => 
-        entry.medicationId === medicationId 
-          ? { 
-              ...entry, 
-              taken,
-              ...(taken 
-                ? { timesTaken: 1, skippedReason: undefined }
-                : { timesTaken: undefined })
-            } 
-          : entry
-      )
-    }));
-  };
-  
-  const updateMedicationTimesTaken = (medicationId: string, change: number) => {
-    setFormData(prev => ({
-      ...prev,
-      medicationEntries: prev.medicationEntries.map(entry => {
-        if (entry.medicationId === medicationId && entry.taken) {
-          const currentTimes = entry.timesTaken || 1;
-          const newTimes = Math.max(1, currentTimes + change);
-          return { ...entry, timesTaken: newTimes };
-        }
-        return entry;
-      })
-    }));
-  };
-  
-  const updateMedicationSkippedReason = (medicationId: string, skippedReason: string) => {
-    setFormData(prev => ({
-      ...prev,
-      medicationEntries: prev.medicationEntries.map(entry => 
-        entry.medicationId === medicationId && !entry.taken
-          ? { ...entry, skippedReason } 
-          : entry
-      )
-    }));
-  };
-  
-  const updateFactor = (factor: keyof CheckIn['factors'], value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      factors: {
-        ...prev.factors,
-        [factor]: value
-      }
-    }));
-  };
-  
-  // Common symptom options
-  const commonSymptoms = [
-    'Itchiness', 'Redness', 'Dryness', 'Flaking', 
-    'Pain', 'Swelling', 'Burning', 'Bleeding'
-  ];
-  
+
   if (!user) return null;
 
-  // Calculate total steps: conditions + lifestyle factors + notes
-  const totalSteps = user.conditions.length + 1 + 1; // conditions + lifestyle + notes
-  const isLastStep = currentStep === totalSteps - 1;
-  
-  // Get current condition for condition steps
-  const getCurrentCondition = () => {
-    if (currentStep < user.conditions.length) {
-      return user.conditions[currentStep];
-    }
-    return null;
-  };
-  
-  const currentCondition = getCurrentCondition();
-  const currentConditionEntry = currentCondition 
-    ? formData.conditionEntries.find(entry => entry.conditionId === currentCondition.id)
-    : null;
-  
-  // Get medications for current condition
-  const getCurrentConditionMedications = () => {
-    if (!currentCondition) return [];
-    return user.medications.filter(med => 
-      med.active && med.conditionIds.includes(currentCondition.id)
-    );
-  };
-  
-  const currentConditionMedications = getCurrentConditionMedications();
-  
-  const canProceed = () => {
-    if (currentStep < user.conditions.length) {
-      // For condition steps, severity must be selected
-      return currentConditionEntry && currentConditionEntry.severity > 0;
-    }
-    return true; // Lifestyle factors and notes are optional
-  };
-  
-  const nextStep = () => {
-    if (canProceed() && currentStep < totalSteps - 1) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-  
-  const prevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-  
-  const getStepTitle = () => {
-    if (currentStep < user.conditions.length) {
-      return currentCondition?.name || 'Condition';
-    } else if (currentStep === user.conditions.length) {
-      return 'Lifestyle Factors';
-    } else {
-      return 'Additional Notes';
-    }
-  };
-  
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-gray-800">
-            {isEditing ? "Edit Check-in" : "Daily Check-in"}
-          </h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-800">Check-In Calendar</h1>
+          <p className="text-gray-600">
+            View your check-in history and add new entries
+          </p>
+        </div>
+        
+        <div className="flex items-center space-x-3 mt-4 sm:mt-0">
+          {/* AI Chat Button */}
+          <button
+            onClick={() => setShowAIChat(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
+          >
+            <Crown size={16} />
+            <MessageCircle size={16} />
+            <span>AI Chat</span>
+          </button>
           
-          <div className="flex items-center space-x-3">
-            {/* AI Chat Button */}
-            <button
-              onClick={() => setShowAIChat(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all"
-            >
-              <MessageCircle size={18} />
-              <span>AI Chat</span>
-            </button>
-            
-            {/* Date selector */}
-            <div className="relative" ref={calendarRef}>
-              <button
-                type="button"
-                onClick={() => setShowCalendar(!showCalendar)}
-                className="flex items-center space-x-2 px-4 py-2 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 text-gray-700 hover:text-gray-900"
-              >
-                <Calendar size={16} className="text-gray-500" />
-                <span className="font-medium">
-                  {selectedDate && format(new Date(selectedDate), 'EEEE, MMMM d, yyyy')}
-                </span>
-              </button>
-              
-              {showCalendar && (
-                <div className="absolute top-full right-0 mt-2 z-20">
-                  <CalendarComponent
-                    selectedDate={new Date(selectedDate)}
-                    onDateSelect={handleDateSelect}
-                    onClose={() => setShowCalendar(false)}
-                    maxDate={new Date()}
-                  />
-                </div>
-              )}
+          {/* Today Button */}
+          <button
+            onClick={() => handleDateClick(new Date())}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={18} />
+            <span>Today's Check-in</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Calendar */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        {/* Calendar Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+          <button
+            onClick={goToPreviousMonth}
+            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            <ChevronLeft size={20} className="text-gray-600" />
+          </button>
+          
+          <h2 className="text-xl font-semibold text-gray-800">
+            {format(currentMonth, 'MMMM yyyy')}
+          </h2>
+          
+          <button
+            onClick={goToNextMonth}
+            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            <ChevronRight size={20} className="text-gray-600" />
+          </button>
+        </div>
+
+        {/* Days of Week Header */}
+        <div className="grid grid-cols-7 border-b border-gray-200">
+          {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
+            <div key={day} className="p-3 text-center text-sm font-medium text-gray-500 bg-gray-50">
+              <span className="hidden sm:inline">{day}</span>
+              <span className="sm:hidden">{day.slice(0, 3)}</span>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium text-gray-700">
-            Step {currentStep + 1} of {totalSteps}
-          </span>
-          <span className="text-sm text-gray-500">
-            {Math.round(((currentStep + 1) / totalSteps) * 100)}% complete
-          </span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
-          ></div>
-        </div>
-      </div>
-
-      {/* Step content */}
-      <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100 min-h-[400px]">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-medium text-gray-800">{getStepTitle()}</h2>
-          {currentCondition && (
-            <div 
-              className="w-4 h-4 rounded-full" 
-              style={{ backgroundColor: currentCondition.color }}
-            ></div>
-          )}
+          ))}
         </div>
 
-        {/* Condition step */}
-        {currentStep < user.conditions.length && currentCondition && currentConditionEntry && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {/* Main condition content - takes up 1/2 of the width */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Severity */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  How severe was your {currentCondition.name} today? *
-                </label>
-                <SeverityScale 
-                  value={currentConditionEntry.severity}
-                  onChange={(value) => updateConditionSeverity(currentCondition.id, value)}
-                  showLabels={currentConditionEntry.severity > 0}
-                  allowUnselected={true}
-                />
-                {submitAttempted && currentConditionEntry.severity === 0 && (
-                  <p className="text-xs text-red-500 mt-2">Please select a severity level</p>
+        {/* Calendar Grid */}
+        <div className="grid grid-cols-7">
+          {calendarDays.map(date => {
+            const checkIn = getCheckInForDate(date);
+            const averageSeverity = checkIn ? getAverageSeverity(checkIn) : 0;
+            
+            return (
+              <div
+                key={date.toISOString()}
+                className={getDayClasses(date)}
+                onClick={() => handleDateClick(date)}
+              >
+                {/* Date number */}
+                <div className="flex justify-between items-start mb-2">
+                  <span className={`text-sm font-medium ${
+                    isSameMonth(date, currentMonth) ? 'text-gray-900' : 'text-gray-400'
+                  } ${isToday(date) ? 'text-blue-600 font-bold' : ''}`}>
+                    {format(date, 'd')}
+                  </span>
+                  
+                  {checkIn && (
+                    <div className="flex items-center space-x-1">
+                      <Edit size={12} className="text-gray-500" />
+                    </div>
+                  )}
+                </div>
+                
+                {/* Check-in indicator */}
+                {checkIn && (
+                  <div className="space-y-1">
+                    {/* Severity indicator */}
+                    <div className="flex items-center space-x-1">
+                      <div 
+                        className={`w-2 h-2 rounded-full ${getSeverityColor(averageSeverity)}`}
+                        title={`Average severity: ${averageSeverity.toFixed(1)}`}
+                      ></div>
+                      <span className="text-xs text-gray-600">
+                        {checkIn.conditionEntries.length} condition{checkIn.conditionEntries.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    
+                    {/* Medication indicator */}
+                    {checkIn.medicationEntries.some(entry => entry.taken) && (
+                      <div className="text-xs text-green-600 flex items-center">
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></div>
+                        Meds taken
+                      </div>
+                    )}
+                    
+                    {/* Notes indicator */}
+                    {checkIn.notes && (
+                      <div className="text-xs text-gray-500 truncate">
+                        "{checkIn.notes.slice(0, 20)}..."
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Empty state for current month days without check-ins */}
+                {!checkIn && isSameMonth(date, currentMonth) && (
+                  <div className="flex items-center justify-center h-full">
+                    <Plus size={16} className="text-gray-300" />
+                  </div>
                 )}
               </div>
+            );
+          })}
+        </div>
+      </div>
 
-              {/* Symptoms */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  What symptoms did you experience?
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {commonSymptoms.map(symptom => (
-                    <label key={symptom} className="flex items-center">
-                      <input 
-                        type="checkbox"
-                        className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                        checked={currentConditionEntry.symptoms.includes(symptom)}
-                        onChange={(e) => updateConditionSymptoms(
-                          currentCondition.id, 
-                          symptom, 
-                          e.target.checked
-                        )}
-                      />
-                      <span className="ml-2 text-sm text-gray-700">{symptom}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Condition notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Additional notes about {currentCondition.name}
-                </label>
-                <textarea
-                  className="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={3}
-                  placeholder="Any specific observations..."
-                  value={currentConditionEntry.notes || ''}
-                  onChange={(e) => updateConditionNotes(currentCondition.id, e.target.value)}
-                ></textarea>
-              </div>
-            </div>
-
-            {/* Medications sidebar - takes up 1/2 of the width */}
-            {currentConditionMedications.length > 0 && (
-              <div className="lg:col-span-2">
-                <div className="bg-gray-50 rounded-lg p-4 h-fit">
-                  <h4 className="text-sm font-medium text-gray-700 mb-4 flex items-center">
-                    Medications for {currentCondition.name}
-                  </h4>
-                  <div className="space-y-3">
-                    {currentConditionMedications.map(medication => {
-                      const medicationEntry = formData.medicationEntries.find(
-                        e => e.medicationId === medication.id
-                      );
-                      
-                      if (!medicationEntry) return null;
-                      
-                      return (
-                        <div key={medication.id} className="bg-white rounded-lg p-3 border border-gray-200">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="flex-1">
-                              <h5 className="font-medium text-gray-800 text-sm">{medication.name}</h5>
-                              <p className="text-xs text-gray-600">{medication.dosage} • {medication.frequency}</p>
-                            </div>
-                            
-                            <div className="flex space-x-2 ml-3">
-                              <button
-                                type="button"
-                                className={`px-2 py-1 rounded text-xs font-medium ${
-                                  medicationEntry.taken 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                }`}
-                                onClick={() => updateMedicationTaken(medication.id, true)}
-                              >
-                                Taken
-                              </button>
-                              <button
-                                type="button"
-                                className={`px-2 py-1 rounded text-xs font-medium ${
-                                  !medicationEntry.taken 
-                                    ? 'bg-red-100 text-red-800' 
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                }`}
-                                onClick={() => updateMedicationTaken(medication.id, false)}
-                              >
-                                {medication.frequency === 'As required' ? 'Not taken' : 'Skipped'}
-                              </button>
-                            </div>
-                          </div>
-                          
-                          {medicationEntry.taken && (
-                            <div className="mb-3">
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Times taken
-                              </label>
-                              <div className="flex items-center">
-                                <button
-                                  type="button"
-                                  className="p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
-                                  onClick={() => updateMedicationTimesTaken(medication.id, -1)}
-                                >
-                                  <Minus size={10} />
-                                </button>
-                                <span className="mx-2 font-medium text-sm">
-                                  {medicationEntry.timesTaken || 1}
-                                </span>
-                                <button
-                                  type="button"
-                                  className="p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
-                                  onClick={() => updateMedicationTimesTaken(medication.id, 1)}
-                                >
-                                  <Plus size={10} />
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {!medicationEntry.taken && medication.frequency !== 'As required' && (
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Reason for skipping?
-                              </label>
-                              <select
-                                className="w-full px-2 py-1 text-xs text-gray-700 border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                value={medicationEntry.skippedReason || ''}
-                                onChange={(e) => updateMedicationSkippedReason(medication.id, e.target.value)}
-                              >
-                                <option value="">Select a reason</option>
-                                <option value="Forgot">Forgot</option>
-                                <option value="Side effects">Side effects</option>
-                                <option value="Not needed">Not needed</option>
-                                <option value="Out of medication">Out of medication</option>
-                                <option value="Other">Other</option>
-                              </select>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
+      {/* Legend */}
+      <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Legend</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            <span className="text-gray-600">Minimal severity (1-1.5)</span>
           </div>
-        )}
-
-        {/* Lifestyle factors step */}
-        {currentStep === user.conditions.length && (
-          <div className="space-y-6">
-            <p className="text-gray-600 mb-6">
-              How were these lifestyle factors today? These help identify patterns and triggers.
-            </p>
-            
-            <div className="grid grid-cols-1 gap-6">
-              {/* Stress level */}
-              <div>
-                <div className="flex items-center mb-3">
-                  <AlertCircle size={18} className="text-orange-500 mr-2" />
-                  <label className="block text-sm font-medium text-gray-700">
-                    Stress Level
-                  </label>
-                </div>
-                <SeverityScale 
-                  value={(formData.factors.stress || 0) as SeverityLevel}
-                  onChange={(value) => updateFactor('stress', value)}
-                  labels={['Very Low', 'Low', 'Moderate', 'High', 'Very High']}
-                  showLabels={false}
-                  allowUnselected={true}
-                />
-              </div>
-              
-              {/* Sleep quality */}
-              <div>
-                <div className="flex items-center mb-3">
-                  <Moon size={18} className="text-blue-500 mr-2" />
-                  <label className="block text-sm font-medium text-gray-700">
-                    Sleep Quality
-                  </label>
-                </div>
-                <SeverityScale 
-                  value={(formData.factors.sleep || 0) as SeverityLevel}
-                  onChange={(value) => updateFactor('sleep', value)}
-                  labels={['Very Poor', 'Poor', 'Fair', 'Good', 'Excellent']}
-                  showLabels={false}
-                  allowUnselected={true}
-                />
-              </div>
-              
-              {/* Water intake */}
-              <div>
-                <div className="flex items-center mb-3">
-                  <Droplets size={18} className="text-blue-400 mr-2" />
-                  <label className="block text-sm font-medium text-gray-700">
-                    Water Intake
-                  </label>
-                </div>
-                <SeverityScale 
-                  value={(formData.factors.water || 0) as SeverityLevel}
-                  onChange={(value) => updateFactor('water', value)}
-                  labels={['Very Low', 'Low', 'Adequate', 'Good', 'Excellent']}
-                  showLabels={false}
-                  allowUnselected={true}
-                />
-              </div>
-              
-              {/* Diet quality */}
-              <div>
-                <div className="flex items-center mb-3">
-                  <Utensils size={18} className="text-green-500 mr-2" />
-                  <label className="block text-sm font-medium text-gray-700">
-                    Diet Quality
-                  </label>
-                </div>
-                <SeverityScale 
-                  value={(formData.factors.diet || 0) as SeverityLevel}
-                  onChange={(value) => updateFactor('diet', value)}
-                  labels={['Very Poor', 'Poor', 'Fair', 'Good', 'Excellent']}
-                  showLabels={false}
-                  allowUnselected={true}
-                />
-              </div>
-              
-              {/* Weather */}
-              <div>
-                <div className="flex items-center mb-3">
-                  <CloudRain size={18} className="text-blue-400 mr-2" />
-                  <label className="block text-sm font-medium text-gray-700">
-                    Weather
-                  </label>
-                </div>
-                <select
-                  className="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.factors.weather || ''}
-                  onChange={(e) => updateFactor('weather', e.target.value)}
-                >
-                  <option value="">Select weather</option>
-                  <option value="Humid">Humid</option>
-                  <option value="Dry">Dry</option>
-                  <option value="Hot">Hot</option>
-                  <option value="Cold">Cold</option>
-                  <option value="Rainy">Rainy</option>
-                  <option value="Windy">Windy</option>
-                </select>
-              </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+            <span className="text-gray-600">Mild severity (1.5-2.5)</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+            <span className="text-gray-600">Moderate severity (2.5-3.5)</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+            <span className="text-gray-600">Severe severity (3.5+)</span>
+          </div>
+        </div>
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <div className="flex items-center space-x-4 text-sm text-gray-600">
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-1 bg-green-500"></div>
+              <span>Has check-in data</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Plus size={16} className="text-gray-300" />
+              <span>Click to add check-in</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Edit size={12} className="text-gray-500" />
+              <span>Click to edit check-in</span>
             </div>
           </div>
-        )}
-
-        {/* Notes step */}
-        {currentStep === totalSteps - 1 && (
-          <div className="space-y-4">
-            <p className="text-gray-600">
-              Any additional observations or notes about your skin today?
-            </p>
-            
-            <textarea
-              className="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={6}
-              placeholder="Any other observations or notes about your skin on this day..."
-              value={formData.notes || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-            ></textarea>
-          </div>
-        )}
+        </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between items-center mt-6">
-        <button
-          type="button"
-          onClick={prevStep}
-          disabled={currentStep === 0}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-            currentStep === 0
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          }`}
-        >
-          <ChevronLeft size={18} />
-          <span>Previous</span>
-        </button>
-
-        {isLastStep ? (
-          <button
-            onClick={handleSubmit}
-            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Save size={18} />
-            <span>{isEditing ? 'Update Check-in' : 'Save Check-in'}</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={nextStep}
-            disabled={!canProceed()}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-              !canProceed()
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
-          >
-            <span>Next</span>
-            <ChevronRight size={18} />
-          </button>
-        )}
+      {/* Statistics */}
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <h3 className="text-sm font-medium text-gray-500 mb-1">This Month</h3>
+          <p className="text-2xl font-bold text-gray-900">{monthCheckIns.size}</p>
+          <p className="text-xs text-gray-500">check-ins completed</p>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <h3 className="text-sm font-medium text-gray-500 mb-1">Completion Rate</h3>
+          <p className="text-2xl font-bold text-gray-900">
+            {Math.round((monthCheckIns.size / new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate()) * 100)}%
+          </p>
+          <p className="text-xs text-gray-500">of days this month</p>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <h3 className="text-sm font-medium text-gray-500 mb-1">Average Severity</h3>
+          <p className="text-2xl font-bold text-gray-900">
+            {monthCheckIns.size > 0 
+              ? (Array.from(monthCheckIns.values())
+                  .reduce((sum, checkIn) => sum + getAverageSeverity(checkIn), 0) / monthCheckIns.size)
+                  .toFixed(1)
+              : '0.0'
+            }
+          </p>
+          <p className="text-xs text-gray-500">this month</p>
+        </div>
       </div>
 
-      {/* Step indicator */}
-      <div className="flex justify-center mt-6 space-x-2">
-        {Array.from({ length: totalSteps }, (_, index) => (
-          <div
-            key={index}
-            className={`w-2 h-2 rounded-full transition-colors ${
-              index <= currentStep ? 'bg-blue-600' : 'bg-gray-300'
-            }`}
-          ></div>
-        ))}
-      </div>
+      {/* Check-in Dialog */}
+      {showCheckInDialog && selectedDate && (
+        <CheckInDialog
+          isOpen={showCheckInDialog}
+          onClose={() => {
+            setShowCheckInDialog(false);
+            setSelectedDate(null);
+          }}
+          onSuccess={handleCheckInSuccess}
+          selectedDate={selectedDate}
+        />
+      )}
 
       {/* Premium AI Chat Modal */}
       {showAIChat && (
