@@ -19,27 +19,6 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true
-  },
-  global: {
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': supabaseAnonKey,
-      'Authorization': `Bearer ${supabaseAnonKey}`
-    },
-    fetch: (url, options = {}) => {
-      return fetch(url, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          ...options.headers,
-        },
-      }).catch(error => {
-        console.error('Fetch error:', error);
-        throw error;
-      });
-    }
   }
 })
 
