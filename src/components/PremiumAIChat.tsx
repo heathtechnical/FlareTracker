@@ -40,6 +40,16 @@ export default function PremiumAIChat({ onClose }: PremiumAIChatProps) {
     initializeConversation();
   }, []);
 
+  // Auto-focus input when component mounts
+  useEffect(() => {
+    if (textareaRef.current) {
+      // Small delay to ensure the modal is fully rendered
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 100);
+    }
+  }, []);
+
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
@@ -509,7 +519,7 @@ Remember: You're here to support and educate with precise data insights, not to 
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="w-full max-w-md bg-white rounded-lg shadow-2xl border border-gray-200 p-8 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-accent-400 to-primary-500 rounded-full flex items-center justify-center">
               <Crown className="w-8 h-8 text-white" />
             </div>
           </div>
@@ -521,15 +531,15 @@ Remember: You're here to support and educate with precise data insights, not to 
           
           <div className="space-y-3 mb-6">
             <div className="flex items-center text-sm text-gray-600">
-              <Sparkles className="w-4 h-4 mr-2 text-yellow-500" />
+              <Sparkles className="w-4 h-4 mr-2 text-accent-500" />
               <span>Personalized skin health insights</span>
             </div>
             <div className="flex items-center text-sm text-gray-600">
-              <Sparkles className="w-4 h-4 mr-2 text-yellow-500" />
+              <Sparkles className="w-4 h-4 mr-2 text-accent-500" />
               <span>Data pattern analysis</span>
             </div>
             <div className="flex items-center text-sm text-gray-600">
-              <Sparkles className="w-4 h-4 mr-2 text-yellow-500" />
+              <Sparkles className="w-4 h-4 mr-2 text-accent-500" />
               <span>24/7 supportive guidance</span>
             </div>
           </div>
@@ -541,7 +551,7 @@ Remember: You're here to support and educate with precise data insights, not to 
             >
               Maybe Later
             </button>
-            <button className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-lg hover:from-yellow-500 hover:to-orange-600 transition-colors font-medium">
+            <button className="flex-1 px-4 py-2 bg-gradient-to-r from-accent-400 to-primary-500 text-white rounded-lg hover:from-accent-500 hover:to-primary-600 transition-colors font-medium">
               Upgrade to Premium
             </button>
           </div>
@@ -554,7 +564,7 @@ Remember: You're here to support and educate with precise data insights, not to 
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="w-full max-w-2xl h-[700px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-lg">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-primary-500 to-accent-500 text-white rounded-t-lg">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
               <Bot className="w-5 h-5" />
@@ -594,13 +604,13 @@ Remember: You're here to support and educate with precise data insights, not to 
               <div
                 className={`max-w-[80%] p-4 rounded-lg ${
                   message.sender === "user"
-                    ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white"
+                    ? "bg-gradient-to-r from-primary-500 to-accent-500 text-white"
                     : "bg-gray-100 text-gray-800"
                 }`}
               >
                 <div className="flex items-start space-x-3">
                   {message.sender === "assistant" && (
-                    <div className="w-6 h-6 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-6 h-6 bg-gradient-to-r from-primary-500 to-accent-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                       <Bot className="w-4 h-4 text-white" />
                     </div>
                   )}
@@ -625,7 +635,7 @@ Remember: You're here to support and educate with precise data insights, not to 
                             em: ({ children }) => <em className="italic text-gray-700">{children}</em>,
                             code: ({ children }) => <code className="bg-gray-200 px-1 py-0.5 rounded text-xs font-mono text-gray-800">{children}</code>,
                             blockquote: ({ children }) => (
-                              <blockquote className="border-l-4 border-blue-500 pl-3 py-1 bg-blue-50 text-sm text-blue-800 mb-2 rounded-r">
+                              <blockquote className="border-l-4 border-primary-500 pl-3 py-1 bg-primary-50 text-sm text-primary-800 mb-2 rounded-r">
                                 {children}
                               </blockquote>
                             ),
@@ -674,7 +684,7 @@ Remember: You're here to support and educate with precise data insights, not to 
                     <p
                       className={`text-xs mt-2 ${
                         message.sender === "user"
-                          ? "text-purple-200"
+                          ? "text-white opacity-75"
                           : "text-gray-500"
                       }`}
                     >
@@ -692,7 +702,7 @@ Remember: You're here to support and educate with precise data insights, not to 
             <div className="flex justify-start">
               <div className="bg-gray-100 text-gray-800 p-4 rounded-lg max-w-[80%]">
                 <div className="flex items-center space-x-3">
-                  <div className="w-6 h-6 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
+                  <div className="w-6 h-6 bg-gradient-to-r from-primary-500 to-accent-500 rounded-full flex items-center justify-center">
                     <Bot className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex space-x-1">
@@ -714,7 +724,7 @@ Remember: You're here to support and educate with precise data insights, not to 
         </div>
 
         {/* Input */}
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
+        <div className="p-4 border-t border-gray-200 bg-cream-50">
           <div className="flex space-x-3 items-end">
             <textarea
               ref={textareaRef}
@@ -728,7 +738,7 @@ Remember: You're here to support and educate with precise data insights, not to 
               }
               disabled={!isConnected || isLoading}
               rows={1}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden min-h-[48px] max-h-[120px]"
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden min-h-[48px] max-h-[120px]"
               style={{
                 height: "auto",
                 minHeight: "48px",
@@ -738,7 +748,7 @@ Remember: You're here to support and educate with precise data insights, not to 
             <button
               onClick={sendMessage}
               disabled={!inputMessage.trim() || isLoading || !isConnected}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed text-white p-3 rounded-lg transition-all flex-shrink-0"
+              className="bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed text-white p-3 rounded-lg transition-all flex-shrink-0"
               aria-label="Send message"
             >
               <Send className="w-5 h-5" />
@@ -758,19 +768,19 @@ Remember: You're here to support and educate with precise data insights, not to 
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               onClick={() => handleQuickQuestion("Show me my medication usage in a table format")}
-              className="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors"
+              className="text-xs px-3 py-1 bg-primary-100 text-primary-700 rounded-full hover:bg-primary-200 transition-colors"
             >
               Medication table
             </button>
             <button
               onClick={() => handleQuickQuestion("How many severe flares have I had this year?")}
-              className="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors"
+              className="text-xs px-3 py-1 bg-primary-100 text-primary-700 rounded-full hover:bg-primary-200 transition-colors"
             >
               Severe flares this year
             </button>
             <button
               onClick={() => handleQuickQuestion("What's my average severity lately?")}
-              className="text-xs px-3 py-1 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors"
+              className="text-xs px-3 py-1 bg-primary-100 text-primary-700 rounded-full hover:bg-primary-200 transition-colors"
             >
               Average severity
             </button>
