@@ -74,20 +74,6 @@ const LandingPage: React.FC = () => {
             </div>
           </div>
 
-          {/* CTA */}
-          <div className="space-y-4">
-            <Link
-              to="/login"
-              className="inline-flex items-center space-x-2 px-8 py-4 bg-primary-500 text-white rounded-xl hover:bg-primary-600 transition-all duration-200 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-            >
-              <span>Get Early Access</span>
-              <ArrowRight size={20} />
-            </Link>
-            
-            <p className="text-sm text-neutral-500">
-              Join the beta program and be among the first to experience FlareTracker
-            </p>
-          </div>
         </div>
       </div>
 
