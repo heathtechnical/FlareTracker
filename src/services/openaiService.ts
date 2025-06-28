@@ -98,7 +98,7 @@ Remember: Be supportive and focus on helping them complete their health tracking
 
       const response = await openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
-        messages: [systemMessage, ...messages],
+        messages: [ ...messages],
         max_tokens: 150,
         temperature: 0.7,
         presence_penalty: 0.3,
