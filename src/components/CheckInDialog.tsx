@@ -153,7 +153,8 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
       reader.onload = (e) => {
         setPhotoPreview(e.target?.result as string);
       };
-      reader.readAsDataURL(file);
+      console.log(reader.readAsDataURL(file);)
+      
     }
   };
   
