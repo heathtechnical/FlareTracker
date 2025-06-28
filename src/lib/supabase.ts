@@ -22,8 +22,6 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   },
   global: {
     headers: {
-      'apikey': supabaseAnonKey,
-      'Authorization': `Bearer ${supabaseAnonKey}`,
       'Content-Type': 'application/json'
     },
     fetch: (url, options = {}) => {
@@ -31,8 +29,6 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
-          'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${supabaseAnonKey}`,
           ...options.headers,
         },
       }).catch(error => {
