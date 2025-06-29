@@ -180,6 +180,8 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
     targetDateTime.setHours(12, 0, 0, 0);
     
     let photoUrl = formData.photoUrl;
+
+    console.log(photoUrl);
     
     // Handle photo upload (in a real app, you'd upload to a cloud service)
     if (photoFile) {
