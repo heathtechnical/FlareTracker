@@ -16,25 +16,14 @@ const ConditionDetail: React.FC = () => {
     return getConditionById(id);
   }, [id, user, getConditionById]);
   
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-neutral-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  if (!condition) {
+  if (!condition || !user) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <AlertTriangle size={48} className="text-orange-500 mb-4" />
         <h2 className="text-xl font-semibold mb-2">Condition Not Found</h2>
         <p className="text-gray-600 mb-6">We couldn't find the condition you're looking for.</p>
         <Link
-          to="/app/conditions"
+          to="/conditions"
           className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <ChevronLeft size={18} className="mr-2" />
@@ -128,7 +117,7 @@ const ConditionDetail: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center mb-4">
         <button
-          onClick={() => navigate('/app/conditions')}
+          onClick={() => navigate(-1)}
           className="mr-3 text-gray-600 hover:text-blue-600"
         >
           <ChevronLeft size={20} />
@@ -166,16 +155,14 @@ const ConditionDetail: React.FC = () => {
       </div>
       
       {/* Trend Chart */}
-      {chartData.labels.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
-          <h3 className="text-lg font-medium text-gray-800 mb-4">Severity Trends</h3>
-          <LineChart 
-            title={`${condition.name} Severity - Last 30 Days`}
-            labels={chartData.labels}
-            datasets={chartData.datasets}
-          />
-        </div>
-      )}
+      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+        <h3 className="text-lg font-medium text-gray-800 mb-4">Severity Trends</h3>
+        <LineChart 
+          title={`${condition.name} Severity - Last 30 Days`}
+          labels={chartData.labels}
+          datasets={chartData.datasets}
+        />
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Common Symptoms */}
@@ -265,7 +252,7 @@ const ConditionDetail: React.FC = () => {
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium text-gray-800">Recent Check-ins</h3>
           <Link
-            to="/app/check-in"
+            to="/check-in"
             className="text-sm text-blue-600 hover:text-blue-800 flex items-center"
           >
             <Calendar size={14} className="mr-1" />
@@ -277,7 +264,7 @@ const ConditionDetail: React.FC = () => {
           <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-100 text-center">
             <p className="text-gray-600 mb-4">No check-ins recorded for this condition yet.</p>
             <Link
-              to="/app/check-in"
+              to="/check-in"
               className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Calendar size={18} />
