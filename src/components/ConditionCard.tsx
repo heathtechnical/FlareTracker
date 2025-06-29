@@ -317,7 +317,7 @@ const ConditionCard: React.FC<ConditionCardProps> = ({
         )}
         
         <Link 
-          to={`/conditions/${condition.id}`} 
+          to={`/app/conditions/${condition.id}`} 
           className="flex items-center text-sm text-primary-600 font-medium hover:text-primary-700 transition-colors"
         >
           View details
