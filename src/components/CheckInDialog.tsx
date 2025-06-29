@@ -1,9 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns';
-import { Save, Plus, Minus, AlertCircle, Moon, CloudRain, Utensils, Droplets, ChevronLeft, ChevronRight, X, Camera, Upload, Trash2 } from 'lucide-react';
-import { useApp } from '../context/AppContext';
-import SeverityScale from './SeverityScale';
-import { CheckIn, ConditionEntry, MedicationEntry, SeverityLevel } from '../types';
+import React, { useState, useEffect } from "react";
+import { format } from "date-fns";
+import {
+  Save,
+  Plus,
+  Minus,
+  AlertCircle,
+  Moon,
+  CloudRain,
+  Utensils,
+  Droplets,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Camera,
+  Upload,
+  Trash2,
+} from "lucide-react";
+import { useApp } from "../context/AppContext";
+import SeverityScale from "./SeverityScale";
+import {
+  CheckIn,
+  ConditionEntry,
+  MedicationEntry,
+  SeverityLevel,
+} from "../types";
 
 interface CheckInDialogProps {
   isOpen: boolean;
@@ -12,105 +32,129 @@ interface CheckInDialogProps {
   selectedDate?: Date; // New prop for the selected date
 }
 
-const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSuccess, selectedDate }) => {
+const CheckInDialog: React.FC<CheckInDialogProps> = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  selectedDate,
+}) => {
   const { user, addCheckIn, updateCheckIn } = useApp();
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  
-  const [formData, setFormData] = useState<Omit<CheckIn, 'id'>>({
+
+  const [formData, setFormData] = useState<Omit<CheckIn, "id">>({
     date: new Date().toISOString(),
     conditionEntries: [],
     medicationEntries: [],
-    factors: {}
+    factors: {},
   });
-  
+
   useEffect(() => {
     if (!user || !isOpen) return;
-    
+
     // Use selectedDate if provided, otherwise use today
     const targetDate = selectedDate || new Date();
-    const targetDateString = format(targetDate, 'yyyy-MM-dd');
-    
+    const targetDateString = format(targetDate, "yyyy-MM-dd");
+
     // Check if there's already a check-in for the target date
-    const existingCheckIn = user.checkIns.find(checkIn => {
-      const checkInDate = format(new Date(checkIn.date), 'yyyy-MM-dd');
+    const existingCheckIn = user.checkIns.find((checkIn) => {
+      const checkInDate = format(new Date(checkIn.date), "yyyy-MM-dd");
       return checkInDate === targetDateString;
     });
-    
+
     if (existingCheckIn) {
       // If there is an existing check-in, load it for editing
-      const existingConditionIds = existingCheckIn.conditionEntries.map(entry => entry.conditionId);
-      const missingConditions = user.conditions.filter(condition => 
-        !existingConditionIds.includes(condition.id)
+      const existingConditionIds = existingCheckIn.conditionEntries.map(
+        (entry) => entry.conditionId
       );
-      
+      const missingConditions = user.conditions.filter(
+        (condition) => !existingConditionIds.includes(condition.id)
+      );
+
       // Add missing conditions with default values (no severity selected)
-      const additionalConditionEntries: ConditionEntry[] = missingConditions.map(condition => ({
-        conditionId: condition.id,
-        severity: 0 as SeverityLevel,
-        symptoms: []
-      }));
-      
+      const additionalConditionEntries: ConditionEntry[] =
+        missingConditions.map((condition) => ({
+          conditionId: condition.id,
+          severity: 0 as SeverityLevel,
+          symptoms: [],
+        }));
+
       // Get medications for conditions and create entries
-      const conditionMedications = user.medications.filter(med => 
-        med.active && user.conditions.some(condition => 
-          med.conditionIds.includes(condition.id)
-        )
+      const conditionMedications = user.medications.filter(
+        (med) =>
+          med.active &&
+          user.conditions.some((condition) =>
+            med.conditionIds.includes(condition.id)
+          )
       );
-      
-      const existingMedicationIds = existingCheckIn.medicationEntries.map(entry => entry.medicationId);
-      const missingMedications = conditionMedications.filter(med => 
-        !existingMedicationIds.includes(med.id)
+
+      const existingMedicationIds = existingCheckIn.medicationEntries.map(
+        (entry) => entry.medicationId
       );
-      
-      const additionalMedicationEntries: MedicationEntry[] = missingMedications.map(medication => ({
-        medicationId: medication.id,
-        taken: false
-      }));
-      
+      const missingMedications = conditionMedications.filter(
+        (med) => !existingMedicationIds.includes(med.id)
+      );
+
+      const additionalMedicationEntries: MedicationEntry[] =
+        missingMedications.map((medication) => ({
+          medicationId: medication.id,
+          taken: false,
+        }));
+
       setFormData({
         date: existingCheckIn.date,
-        conditionEntries: [...existingCheckIn.conditionEntries, ...additionalConditionEntries],
-        medicationEntries: [...existingCheckIn.medicationEntries, ...additionalMedicationEntries],
+        conditionEntries: [
+          ...existingCheckIn.conditionEntries,
+          ...additionalConditionEntries,
+        ],
+        medicationEntries: [
+          ...existingCheckIn.medicationEntries,
+          ...additionalMedicationEntries,
+        ],
         notes: existingCheckIn.notes,
         photoUrl: existingCheckIn.photoUrl,
-        factors: { ...existingCheckIn.factors }
+        factors: { ...existingCheckIn.factors },
       });
-      
+
       // Set photo preview if existing photo URL
       if (existingCheckIn.photoUrl) {
         setPhotoPreview(existingCheckIn.photoUrl);
       }
-      
+
       setIsEditing(true);
     } else {
       // If not, create a new one with defaults for the target date
-      const defaultConditionEntries: ConditionEntry[] = user.conditions.map(condition => ({
-        conditionId: condition.id,
-        severity: 0 as SeverityLevel,
-        symptoms: []
-      }));
-      
-      // Get medications for conditions only
-      const conditionMedications = user.medications.filter(med => 
-        med.active && user.conditions.some(condition => 
-          med.conditionIds.includes(condition.id)
-        )
+      const defaultConditionEntries: ConditionEntry[] = user.conditions.map(
+        (condition) => ({
+          conditionId: condition.id,
+          severity: 0 as SeverityLevel,
+          symptoms: [],
+        })
       );
-      
-      const defaultMedicationEntries: MedicationEntry[] = conditionMedications.map(medication => ({
-        medicationId: medication.id,
-        taken: false
-      }));
-      
+
+      // Get medications for conditions only
+      const conditionMedications = user.medications.filter(
+        (med) =>
+          med.active &&
+          user.conditions.some((condition) =>
+            med.conditionIds.includes(condition.id)
+          )
+      );
+
+      const defaultMedicationEntries: MedicationEntry[] =
+        conditionMedications.map((medication) => ({
+          medicationId: medication.id,
+          taken: false,
+        }));
+
       // Set the date to the target date
       const targetDateTime = new Date(targetDate);
       targetDateTime.setHours(12, 0, 0, 0);
-      
+
       setFormData({
         date: targetDateTime.toISOString(),
         conditionEntries: defaultConditionEntries,
@@ -118,207 +162,220 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
         factors: {
           stress: 0 as SeverityLevel,
           sleep: 0 as SeverityLevel,
-          water: 0 as SeverityLevel
-        }
+          water: 0 as SeverityLevel,
+        },
       });
       setIsEditing(false);
     }
-    
+
     // Reset to first step when opening
     setCurrentStep(0);
     setSubmitAttempted(false);
     setPhotoFile(null);
-    setPhotoPreview(null);
+    // setPhotoPreview(null);
   }, [user, isOpen, selectedDate]);
-  
+
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       // Check file size (limit to 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('Photo size must be less than 5MB');
+        alert("Photo size must be less than 5MB");
         return;
       }
-      
+
       // Check file type
-      if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
+      if (!file.type.startsWith("image/")) {
+        alert("Please select an image file");
         return;
       }
-      
+
       setPhotoFile(file);
-      
+
       // Create preview URL
       const reader = new FileReader();
       reader.onload = (e) => {
         setPhotoPreview(e.target?.result as string);
+        setFormData((prev) => ({ ...prev, photoUrl: reader.result as string }));
       };
       reader.readAsDataURL(file);
     }
   };
-  
+
   const removePhoto = () => {
     setPhotoFile(null);
     setPhotoPreview(null);
-    setFormData(prev => ({ ...prev, photoUrl: undefined }));
+    setFormData((prev) => ({ ...prev, photoUrl: undefined }));
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitAttempted(true);
-    
+
     // Validate that all conditions have severity selected (not 0)
-    const unratedConditions = formData.conditionEntries.filter(entry => entry.severity === 0);
+    const unratedConditions = formData.conditionEntries.filter(
+      (entry) => entry.severity === 0
+    );
     if (unratedConditions.length > 0) {
-      alert('Please rate the severity for all conditions before saving.');
+      alert("Please rate the severity for all conditions before saving.");
       return;
     }
-    
+
     // Use the target date for the check-in
     const targetDate = selectedDate || new Date();
     const targetDateTime = new Date(targetDate);
     targetDateTime.setHours(12, 0, 0, 0);
-    
+
     let photoUrl = formData.photoUrl;
 
-    console.log(photoUrl);
-    
     // Handle photo upload (in a real app, you'd upload to a cloud service)
     if (photoFile) {
       // For demo purposes, we'll use a data URL
       // In production, you'd upload to a service like Supabase Storage, AWS S3, etc.
       photoUrl = photoPreview;
     }
-    
+
     const checkInData = {
       ...formData,
       date: targetDateTime.toISOString(),
-      photoUrl
+      photoUrl,
     };
-    
+
     if (isEditing && user) {
-      const targetDateString = format(targetDate, 'yyyy-MM-dd');
-      const existingCheckIn = user.checkIns.find(checkIn => {
-        const checkInDate = format(new Date(checkIn.date), 'yyyy-MM-dd');
+      const targetDateString = format(targetDate, "yyyy-MM-dd");
+      const existingCheckIn = user.checkIns.find((checkIn) => {
+        const checkInDate = format(new Date(checkIn.date), "yyyy-MM-dd");
         return checkInDate === targetDateString;
       });
-      
+
       if (existingCheckIn) {
         updateCheckIn({
           ...checkInData,
-          id: existingCheckIn.id
+          id: existingCheckIn.id,
         });
       }
     } else {
       addCheckIn(checkInData);
     }
-    
+
     onSuccess?.();
     onClose();
   };
-  
-  const updateConditionSeverity = (conditionId: string, severity: SeverityLevel) => {
-    setFormData(prev => ({
+
+  const updateConditionSeverity = (
+    conditionId: string,
+    severity: SeverityLevel
+  ) => {
+    setFormData((prev) => ({
       ...prev,
-      conditionEntries: prev.conditionEntries.map(entry => 
-        entry.conditionId === conditionId 
-          ? { ...entry, severity } 
-          : entry
-      )
+      conditionEntries: prev.conditionEntries.map((entry) =>
+        entry.conditionId === conditionId ? { ...entry, severity } : entry
+      ),
     }));
   };
-  
-  const updateConditionSymptoms = (conditionId: string, symptom: string, isChecked: boolean) => {
-    setFormData(prev => ({
+
+  const updateConditionSymptoms = (
+    conditionId: string,
+    symptom: string,
+    isChecked: boolean
+  ) => {
+    setFormData((prev) => ({
       ...prev,
-      conditionEntries: prev.conditionEntries.map(entry => 
-        entry.conditionId === conditionId 
-          ? { 
-              ...entry, 
-              symptoms: isChecked 
+      conditionEntries: prev.conditionEntries.map((entry) =>
+        entry.conditionId === conditionId
+          ? {
+              ...entry,
+              symptoms: isChecked
                 ? [...entry.symptoms, symptom]
-                : entry.symptoms.filter(s => s !== symptom)
-            } 
+                : entry.symptoms.filter((s) => s !== symptom),
+            }
           : entry
-      )
+      ),
     }));
   };
-  
+
   const updateConditionNotes = (conditionId: string, notes: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      conditionEntries: prev.conditionEntries.map(entry => 
-        entry.conditionId === conditionId 
-          ? { ...entry, notes } 
-          : entry
-      )
+      conditionEntries: prev.conditionEntries.map((entry) =>
+        entry.conditionId === conditionId ? { ...entry, notes } : entry
+      ),
     }));
   };
-  
+
   const updateMedicationTaken = (medicationId: string, taken: boolean) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      medicationEntries: prev.medicationEntries.map(entry => 
-        entry.medicationId === medicationId 
-          ? { 
-              ...entry, 
+      medicationEntries: prev.medicationEntries.map((entry) =>
+        entry.medicationId === medicationId
+          ? {
+              ...entry,
               taken,
-              ...(taken 
+              ...(taken
                 ? { timesTaken: 1, skippedReason: undefined }
-                : { timesTaken: undefined })
-            } 
+                : { timesTaken: undefined }),
+            }
           : entry
-      )
+      ),
     }));
   };
-  
+
   const updateMedicationTimesTaken = (medicationId: string, change: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      medicationEntries: prev.medicationEntries.map(entry => {
+      medicationEntries: prev.medicationEntries.map((entry) => {
         if (entry.medicationId === medicationId && entry.taken) {
           const currentTimes = entry.timesTaken || 1;
           const newTimes = Math.max(1, currentTimes + change);
           return { ...entry, timesTaken: newTimes };
         }
         return entry;
-      })
+      }),
     }));
   };
-  
-  const updateMedicationSkippedReason = (medicationId: string, skippedReason: string) => {
-    setFormData(prev => ({
+
+  const updateMedicationSkippedReason = (
+    medicationId: string,
+    skippedReason: string
+  ) => {
+    setFormData((prev) => ({
       ...prev,
-      medicationEntries: prev.medicationEntries.map(entry => 
+      medicationEntries: prev.medicationEntries.map((entry) =>
         entry.medicationId === medicationId && !entry.taken
-          ? { ...entry, skippedReason } 
+          ? { ...entry, skippedReason }
           : entry
-      )
+      ),
     }));
   };
-  
-  const updateFactor = (factor: keyof CheckIn['factors'], value: any) => {
-    setFormData(prev => ({
+
+  const updateFactor = (factor: keyof CheckIn["factors"], value: any) => {
+    setFormData((prev) => ({
       ...prev,
       factors: {
         ...prev.factors,
-        [factor]: value
-      }
+        [factor]: value,
+      },
     }));
   };
-  
+
   // Common symptom options
   const commonSymptoms = [
-    'Itchiness', 'Redness', 'Dryness', 'Flaking', 
-    'Pain', 'Swelling', 'Burning', 'Bleeding'
+    "Itchiness",
+    "Redness",
+    "Dryness",
+    "Flaking",
+    "Pain",
+    "Swelling",
+    "Burning",
+    "Bleeding",
   ];
-  
+
   if (!user || !isOpen) return null;
 
   // Calculate total steps: conditions + lifestyle factors + notes + photo
   const totalSteps = user.conditions.length + 1 + 1 + 1; // conditions + lifestyle + notes + photo
   const isLastStep = currentStep === totalSteps - 1;
-  
+
   // Get current condition for condition steps
   const getCurrentCondition = () => {
     if (currentStep < user.conditions.length) {
@@ -326,22 +383,24 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
     }
     return null;
   };
-  
+
   const currentCondition = getCurrentCondition();
-  const currentConditionEntry = currentCondition 
-    ? formData.conditionEntries.find(entry => entry.conditionId === currentCondition.id)
+  const currentConditionEntry = currentCondition
+    ? formData.conditionEntries.find(
+        (entry) => entry.conditionId === currentCondition.id
+      )
     : null;
-  
+
   // Get medications for current condition
   const getCurrentConditionMedications = () => {
     if (!currentCondition) return [];
-    return user.medications.filter(med => 
-      med.active && med.conditionIds.includes(currentCondition.id)
+    return user.medications.filter(
+      (med) => med.active && med.conditionIds.includes(currentCondition.id)
     );
   };
-  
+
   const currentConditionMedications = getCurrentConditionMedications();
-  
+
   const canProceed = () => {
     if (currentStep < user.conditions.length) {
       // For condition steps, severity must be selected
@@ -349,28 +408,28 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
     }
     return true; // Lifestyle factors, notes, and photo are optional
   };
-  
+
   const nextStep = () => {
     if (canProceed() && currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
     }
   };
-  
+
   const prevStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
   };
-  
+
   const getStepTitle = () => {
     if (currentStep < user.conditions.length) {
-      return currentCondition?.name || 'Condition';
+      return currentCondition?.name || "Condition";
     } else if (currentStep === user.conditions.length) {
-      return 'Lifestyle Factors';
+      return "Lifestyle Factors";
     } else if (currentStep === user.conditions.length + 1) {
-      return 'Additional Notes';
+      return "Additional Notes";
     } else {
-      return 'Add Photo (Optional)';
+      return "Add Photo (Optional)";
     }
   };
 
@@ -387,7 +446,7 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
               {isEditing ? "Edit Check-in" : "Daily Check-in"}
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              {format(displayDate, 'EEEE, MMMM d, yyyy')}
+              {format(displayDate, "EEEE, MMMM d, yyyy")}
             </p>
           </div>
           <button
@@ -409,7 +468,7 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
+            <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
             ></div>
@@ -419,187 +478,249 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-medium text-gray-800">{getStepTitle()}</h3>
+            <h3 className="text-lg font-medium text-gray-800">
+              {getStepTitle()}
+            </h3>
             {currentCondition && (
-              <div 
-                className="w-4 h-4 rounded-full" 
+              <div
+                className="w-4 h-4 rounded-full"
                 style={{ backgroundColor: currentCondition.color }}
               ></div>
             )}
           </div>
 
           {/* Condition step */}
-          {currentStep < user.conditions.length && currentCondition && currentConditionEntry && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Main condition content */}
-              <div className="space-y-6">
-                {/* Severity */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    How severe was your {currentCondition.name} today? *
-                  </label>
-                  <SeverityScale 
-                    value={currentConditionEntry.severity}
-                    onChange={(value) => updateConditionSeverity(currentCondition.id, value)}
-                    showLabels={currentConditionEntry.severity > 0}
-                    allowUnselected={true}
-                  />
-                  {submitAttempted && currentConditionEntry.severity === 0 && (
-                    <p className="text-xs text-red-500 mt-2">Please select a severity level</p>
-                  )}
-                </div>
+          {currentStep < user.conditions.length &&
+            currentCondition &&
+            currentConditionEntry && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Main condition content */}
+                <div className="space-y-6">
+                  {/* Severity */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      How severe was your {currentCondition.name} today? *
+                    </label>
+                    <SeverityScale
+                      value={currentConditionEntry.severity}
+                      onChange={(value) =>
+                        updateConditionSeverity(currentCondition.id, value)
+                      }
+                      showLabels={currentConditionEntry.severity > 0}
+                      allowUnselected={true}
+                    />
+                    {submitAttempted &&
+                      currentConditionEntry.severity === 0 && (
+                        <p className="text-xs text-red-500 mt-2">
+                          Please select a severity level
+                        </p>
+                      )}
+                  </div>
 
-                {/* Symptoms */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    What symptoms did you experience?
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {commonSymptoms.map(symptom => (
-                      <label key={symptom} className="flex items-center">
-                        <input 
-                          type="checkbox"
-                          className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                          checked={currentConditionEntry.symptoms.includes(symptom)}
-                          onChange={(e) => updateConditionSymptoms(
-                            currentCondition.id, 
-                            symptom, 
-                            e.target.checked
-                          )}
-                        />
-                        <span className="ml-2 text-sm text-gray-700">{symptom}</span>
-                      </label>
-                    ))}
+                  {/* Symptoms */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      What symptoms did you experience?
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      {commonSymptoms.map((symptom) => (
+                        <label key={symptom} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            checked={currentConditionEntry.symptoms.includes(
+                              symptom
+                            )}
+                            onChange={(e) =>
+                              updateConditionSymptoms(
+                                currentCondition.id,
+                                symptom,
+                                e.target.checked
+                              )
+                            }
+                          />
+                          <span className="ml-2 text-sm text-gray-700">
+                            {symptom}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Condition notes */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Additional notes about {currentCondition.name}
+                    </label>
+                    <textarea
+                      className="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={3}
+                      placeholder="Any specific observations..."
+                      value={currentConditionEntry.notes || ""}
+                      onChange={(e) =>
+                        updateConditionNotes(
+                          currentCondition.id,
+                          e.target.value
+                        )
+                      }
+                    ></textarea>
                   </div>
                 </div>
 
-                {/* Condition notes */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Additional notes about {currentCondition.name}
-                  </label>
-                  <textarea
-                    className="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={3}
-                    placeholder="Any specific observations..."
-                    value={currentConditionEntry.notes || ''}
-                    onChange={(e) => updateConditionNotes(currentCondition.id, e.target.value)}
-                  ></textarea>
-                </div>
-              </div>
+                {/* Medications sidebar */}
+                {currentConditionMedications.length > 0 && (
+                  <div>
+                    <div className="bg-gray-50 rounded-lg p-4 h-fit">
+                      <h4 className="text-sm font-medium text-gray-700 mb-4 flex items-center">
+                        Medications for {currentCondition.name}
+                      </h4>
+                      <div className="space-y-3">
+                        {currentConditionMedications.map((medication) => {
+                          const medicationEntry =
+                            formData.medicationEntries.find(
+                              (e) => e.medicationId === medication.id
+                            );
 
-              {/* Medications sidebar */}
-              {currentConditionMedications.length > 0 && (
-                <div>
-                  <div className="bg-gray-50 rounded-lg p-4 h-fit">
-                    <h4 className="text-sm font-medium text-gray-700 mb-4 flex items-center">
-                      Medications for {currentCondition.name}
-                    </h4>
-                    <div className="space-y-3">
-                      {currentConditionMedications.map(medication => {
-                        const medicationEntry = formData.medicationEntries.find(
-                          e => e.medicationId === medication.id
-                        );
-                        
-                        if (!medicationEntry) return null;
-                        
-                        return (
-                          <div key={medication.id} className="bg-white rounded-lg p-3 border border-gray-200">
-                            <div className="flex justify-between items-start mb-3">
-                              <div className="flex-1">
-                                <h5 className="font-medium text-gray-800 text-sm">{medication.name}</h5>
-                                <p className="text-xs text-gray-600">{medication.dosage} • {medication.frequency}</p>
-                              </div>
-                              
-                              <div className="flex space-x-2 ml-3">
-                                <button
-                                  type="button"
-                                  className={`px-2 py-1 rounded text-xs font-medium ${
-                                    medicationEntry.taken 
-                                      ? 'bg-green-100 text-green-800' 
-                                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                  }`}
-                                  onClick={() => updateMedicationTaken(medication.id, true)}
-                                >
-                                  Taken
-                                </button>
-                                <button
-                                  type="button"
-                                  className={`px-2 py-1 rounded text-xs font-medium ${
-                                    !medicationEntry.taken 
-                                      ? 'bg-red-100 text-red-800' 
-                                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                  }`}
-                                  onClick={() => updateMedicationTaken(medication.id, false)}
-                                >
-                                  {medication.frequency === 'As required' ? 'Not taken' : 'Skipped'}
-                                </button>
-                              </div>
-                            </div>
-                            
-                            {medicationEntry.taken && (
-                              <div className="mb-3">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Times taken
-                                </label>
-                                <div className="flex items-center">
+                          if (!medicationEntry) return null;
+
+                          return (
+                            <div
+                              key={medication.id}
+                              className="bg-white rounded-lg p-3 border border-gray-200"
+                            >
+                              <div className="flex justify-between items-start mb-3">
+                                <div className="flex-1">
+                                  <h5 className="font-medium text-gray-800 text-sm">
+                                    {medication.name}
+                                  </h5>
+                                  <p className="text-xs text-gray-600">
+                                    {medication.dosage} • {medication.frequency}
+                                  </p>
+                                </div>
+
+                                <div className="flex space-x-2 ml-3">
                                   <button
                                     type="button"
-                                    className="p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
-                                    onClick={() => updateMedicationTimesTaken(medication.id, -1)}
+                                    className={`px-2 py-1 rounded text-xs font-medium ${
+                                      medicationEntry.taken
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                    }`}
+                                    onClick={() =>
+                                      updateMedicationTaken(medication.id, true)
+                                    }
                                   >
-                                    <Minus size={10} />
+                                    Taken
                                   </button>
-                                  <span className="mx-2 font-medium text-sm">
-                                    {medicationEntry.timesTaken || 1}
-                                  </span>
                                   <button
                                     type="button"
-                                    className="p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
-                                    onClick={() => updateMedicationTimesTaken(medication.id, 1)}
+                                    className={`px-2 py-1 rounded text-xs font-medium ${
+                                      !medicationEntry.taken
+                                        ? "bg-red-100 text-red-800"
+                                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                    }`}
+                                    onClick={() =>
+                                      updateMedicationTaken(
+                                        medication.id,
+                                        false
+                                      )
+                                    }
                                   >
-                                    <Plus size={10} />
+                                    {medication.frequency === "As required"
+                                      ? "Not taken"
+                                      : "Skipped"}
                                   </button>
                                 </div>
                               </div>
-                            )}
-                            
-                            {!medicationEntry.taken && medication.frequency !== 'As required' && (
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">
-                                  Reason for skipping?
-                                </label>
-                                <select
-                                  className="w-full px-2 py-1 text-xs text-gray-700 border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  value={medicationEntry.skippedReason || ''}
-                                  onChange={(e) => updateMedicationSkippedReason(medication.id, e.target.value)}
-                                >
-                                  <option value="">Select a reason</option>
-                                  <option value="Forgot">Forgot</option>
-                                  <option value="Side effects">Side effects</option>
-                                  <option value="Not needed">Not needed</option>
-                                  <option value="Out of medication">Out of medication</option>
-                                  <option value="Other">Other</option>
-                                </select>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+
+                              {medicationEntry.taken && (
+                                <div className="mb-3">
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    Times taken
+                                  </label>
+                                  <div className="flex items-center">
+                                    <button
+                                      type="button"
+                                      className="p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                      onClick={() =>
+                                        updateMedicationTimesTaken(
+                                          medication.id,
+                                          -1
+                                        )
+                                      }
+                                    >
+                                      <Minus size={10} />
+                                    </button>
+                                    <span className="mx-2 font-medium text-sm">
+                                      {medicationEntry.timesTaken || 1}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className="p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                      onClick={() =>
+                                        updateMedicationTimesTaken(
+                                          medication.id,
+                                          1
+                                        )
+                                      }
+                                    >
+                                      <Plus size={10} />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {!medicationEntry.taken &&
+                                medication.frequency !== "As required" && (
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                                      Reason for skipping?
+                                    </label>
+                                    <select
+                                      className="w-full px-2 py-1 text-xs text-gray-700 border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                      value={
+                                        medicationEntry.skippedReason || ""
+                                      }
+                                      onChange={(e) =>
+                                        updateMedicationSkippedReason(
+                                          medication.id,
+                                          e.target.value
+                                        )
+                                      }
+                                    >
+                                      <option value="">Select a reason</option>
+                                      <option value="Forgot">Forgot</option>
+                                      <option value="Side effects">
+                                        Side effects
+                                      </option>
+                                      <option value="Not needed">
+                                        Not needed
+                                      </option>
+                                      <option value="Out of medication">
+                                        Out of medication
+                                      </option>
+                                      <option value="Other">Other</option>
+                                    </select>
+                                  </div>
+                                )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
           {/* Lifestyle factors step */}
           {currentStep === user.conditions.length && (
             <div className="space-y-6">
               <p className="text-gray-600 mb-6">
-                How were these lifestyle factors today? These help identify patterns and triggers.
+                How were these lifestyle factors today? These help identify
+                patterns and triggers.
               </p>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Stress level */}
                 <div>
@@ -609,15 +730,21 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
                       Stress Level
                     </label>
                   </div>
-                  <SeverityScale 
+                  <SeverityScale
                     value={(formData.factors.stress || 0) as SeverityLevel}
-                    onChange={(value) => updateFactor('stress', value)}
-                    labels={['Very Low', 'Low', 'Moderate', 'High', 'Very High']}
+                    onChange={(value) => updateFactor("stress", value)}
+                    labels={[
+                      "Very Low",
+                      "Low",
+                      "Moderate",
+                      "High",
+                      "Very High",
+                    ]}
                     showLabels={false}
                     allowUnselected={true}
                   />
                 </div>
-                
+
                 {/* Sleep quality */}
                 <div>
                   <div className="flex items-center mb-3">
@@ -626,15 +753,15 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
                       Sleep Quality
                     </label>
                   </div>
-                  <SeverityScale 
+                  <SeverityScale
                     value={(formData.factors.sleep || 0) as SeverityLevel}
-                    onChange={(value) => updateFactor('sleep', value)}
-                    labels={['Very Poor', 'Poor', 'Fair', 'Good', 'Excellent']}
+                    onChange={(value) => updateFactor("sleep", value)}
+                    labels={["Very Poor", "Poor", "Fair", "Good", "Excellent"]}
                     showLabels={false}
                     allowUnselected={true}
                   />
                 </div>
-                
+
                 {/* Water intake */}
                 <div>
                   <div className="flex items-center mb-3">
@@ -643,15 +770,21 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
                       Water Intake
                     </label>
                   </div>
-                  <SeverityScale 
+                  <SeverityScale
                     value={(formData.factors.water || 0) as SeverityLevel}
-                    onChange={(value) => updateFactor('water', value)}
-                    labels={['Very Low', 'Low', 'Adequate', 'Good', 'Excellent']}
+                    onChange={(value) => updateFactor("water", value)}
+                    labels={[
+                      "Very Low",
+                      "Low",
+                      "Adequate",
+                      "Good",
+                      "Excellent",
+                    ]}
                     showLabels={false}
                     allowUnselected={true}
                   />
                 </div>
-                
+
                 {/* Diet quality */}
                 <div>
                   <div className="flex items-center mb-3">
@@ -660,16 +793,16 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
                       Diet Quality
                     </label>
                   </div>
-                  <SeverityScale 
+                  <SeverityScale
                     value={(formData.factors.diet || 0) as SeverityLevel}
-                    onChange={(value) => updateFactor('diet', value)}
-                    labels={['Very Poor', 'Poor', 'Fair', 'Good', 'Excellent']}
+                    onChange={(value) => updateFactor("diet", value)}
+                    labels={["Very Poor", "Poor", "Fair", "Good", "Excellent"]}
                     showLabels={false}
                     allowUnselected={true}
                   />
                 </div>
               </div>
-              
+
               {/* Weather */}
               <div>
                 <div className="flex items-center mb-3">
@@ -680,8 +813,8 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
                 </div>
                 <select
                   className="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.factors.weather || ''}
-                  onChange={(e) => updateFactor('weather', e.target.value)}
+                  value={formData.factors.weather || ""}
+                  onChange={(e) => updateFactor("weather", e.target.value)}
                 >
                   <option value="">Select weather</option>
                   <option value="Humid">Humid</option>
@@ -701,13 +834,15 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
               <p className="text-gray-600">
                 Any additional observations or notes about your skin today?
               </p>
-              
+
               <textarea
                 className="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={6}
                 placeholder="Any other observations or notes about your skin on this day..."
-                value={formData.notes || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                value={formData.notes || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, notes: e.target.value }))
+                }
               ></textarea>
             </div>
           )}
@@ -718,14 +853,14 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
               <p className="text-gray-600">
                 Optionally add a photo to visually track your skin condition.
               </p>
-              
+
               {!photoPreview ? (
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
                   <div className="space-y-4">
                     <div className="flex justify-center">
                       <Camera size={48} className="text-gray-400" />
                     </div>
-                    
+
                     <div>
                       <label htmlFor="photo-upload" className="cursor-pointer">
                         <span className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
@@ -741,7 +876,7 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
                         className="hidden"
                       />
                     </div>
-                    
+
                     <p className="text-sm text-gray-500">
                       Upload a photo (JPG, PNG, max 5MB)
                     </p>
@@ -763,7 +898,7 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
                       <Trash2 size={16} />
                     </button>
                   </div>
-                  
+
                   <div className="flex space-x-3">
                     <label htmlFor="photo-replace" className="cursor-pointer">
                       <span className="inline-flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
@@ -781,13 +916,19 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
                   </div>
                 </div>
               )}
-              
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-start">
-                  <AlertCircle className="text-blue-500 mr-3 flex-shrink-0 mt-0.5" size={20} />
+                  <AlertCircle
+                    className="text-blue-500 mr-3 flex-shrink-0 mt-0.5"
+                    size={20}
+                  />
                   <div className="text-sm text-blue-700">
                     <p className="font-medium mb-1">Privacy Note</p>
-                    <p>Photos are stored securely and are only visible to you. You can remove them at any time.</p>
+                    <p>
+                      Photos are stored securely and are only visible to you.
+                      You can remove them at any time.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -803,8 +944,8 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
             disabled={currentStep === 0}
             className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
               currentStep === 0
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
             }`}
           >
             <ChevronLeft size={18} />
@@ -816,7 +957,7 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
               <div
                 key={index}
                 className={`w-2 h-2 rounded-full transition-colors ${
-                  index <= currentStep ? 'bg-blue-600' : 'bg-gray-300'
+                  index <= currentStep ? "bg-blue-600" : "bg-gray-300"
                 }`}
               ></div>
             ))}
@@ -828,7 +969,7 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
               className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Save size={18} />
-              <span>{isEditing ? 'Update Check-in' : 'Save Check-in'}</span>
+              <span>{isEditing ? "Update Check-in" : "Save Check-in"}</span>
             </button>
           ) : (
             <button
@@ -837,8 +978,8 @@ const CheckInDialog: React.FC<CheckInDialogProps> = ({ isOpen, onClose, onSucces
               disabled={!canProceed()}
               className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
                 !canProceed()
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
               }`}
             >
               <span>Next</span>

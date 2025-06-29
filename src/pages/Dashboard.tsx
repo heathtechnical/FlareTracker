@@ -159,7 +159,7 @@ const Dashboard: React.FC = () => {
 
   const handleCheckInSuccess = () => {
     // Refresh the page or update state as needed
-    window.location.reload();
+    // window.location.reload();
   };
 
   return (
@@ -356,9 +356,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Premium AI Chat Modal */}
-      {showAIChat && (
-        <PremiumAIChat onClose={() => setShowAIChat(false)} />
-      )}
+      {showAIChat && <PremiumAIChat onClose={() => setShowAIChat(false)} />}
 
       {/* Check-in Dialog */}
       <CheckInDialog
