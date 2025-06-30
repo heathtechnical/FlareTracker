@@ -56,7 +56,7 @@ export class OpenAIService {
       if (!apiKey) {
         throw new Error('OpenAI API key not configured. Please set VITE_OPENAI_API_KEY in your environment variables.');
       }
-      if (apiKey === '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') {
+      if (apiKey === 'your_openai_key') {
         throw new Error('OpenAI API key is set to placeholder value. Please update with a real API key.');
       }
       throw new Error('OpenAI client not initialized properly.');
