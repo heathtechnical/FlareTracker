@@ -7,11 +7,13 @@ const LandingPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-cream-50 to-secondary-50">
       {/* Floating Bolt Logo */}
       <div className="fixed top-6 right-6 z-50">
+        <a href="https://bolt.new/">
         <img
           src="/bolt.png"
           alt="Built with Bolt"
           className="w-12 h-12 object-contain opacity-80 hover:opacity-100 transition-opacity duration-200 drop-shadow-lg"
         />
+          </a>
       </div>
 
       {/* Navigation */}
