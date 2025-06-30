@@ -516,7 +516,7 @@ Remember: You're here to support and educate with precise data insights, not to 
 
   if (!isPremium) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto" style={{ marginTop: 0 }}>
         <div className="w-full max-w-md bg-white rounded-lg shadow-2xl border border-gray-200 p-8 text-center my-8">
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 bg-gradient-to-br from-accent-400 to-primary-500 rounded-full flex items-center justify-center">
