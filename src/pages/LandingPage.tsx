@@ -13,7 +13,7 @@ const LandingPage: React.FC = () => {
           alt="Built with Bolt"
           className="w-12 h-12 object-contain opacity-80 hover:opacity-100 transition-opacity duration-200 drop-shadow-lg"
         />
-          </a>
+        </a>
       </div>
 
       {/* Navigation */}
