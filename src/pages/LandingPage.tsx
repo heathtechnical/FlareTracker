@@ -11,7 +11,7 @@ const LandingPage: React.FC = () => {
         <img
           src="/bolt.png"
           alt="Built with Bolt"
-          className="w-12 h-12 object-contain opacity-80 hover:opacity-100 transition-opacity duration-200 drop-shadow-lg"
+          className="w-40 h-40 object-contain opacity-80 hover:opacity-100 transition-opacity duration-200 drop-shadow-lg"
         />
         </a>
       </div>
