@@ -516,8 +516,8 @@ Remember: You're here to support and educate with precise data insights, not to 
 
   if (!isPremium) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="w-full max-w-md bg-white rounded-lg shadow-2xl border border-gray-200 p-8 text-center">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div className="w-full max-w-md bg-white rounded-lg shadow-2xl border border-gray-200 p-8 text-center my-8">
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 bg-gradient-to-br from-accent-400 to-primary-500 rounded-full flex items-center justify-center">
               <Crown className="w-8 h-8 text-white" />
@@ -561,8 +561,8 @@ Remember: You're here to support and educate with precise data insights, not to 
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="w-full max-w-2xl h-[700px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="w-full max-w-2xl h-[700px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col my-8">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-primary-500 to-accent-500 text-white rounded-t-lg">
           <div className="flex items-center space-x-3">

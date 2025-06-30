@@ -215,11 +215,11 @@ Formatting rules:
 
 Behavior guidelines:
 - Be gentle, curious, and empathetic — this is a supportive space
-- Don’t use clinical language or make assumptions
-- Don’t include information unless it was stated or strongly implied
+- Don't use clinical language or make assumptions
+- Don't include information unless it was stated or strongly implied
 - Assume medications were NOT taken unless the user clearly says otherwise
 
-If any required information is still missing, continue the conversation to explore the user’s experience further`;
+If any required information is still missing, continue the conversation to explore the user's experience further`;
   };
 
   const sendMessage = async () => {
@@ -409,8 +409,8 @@ If any required information is still missing, continue the conversation to explo
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="w-full max-w-md h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="w-full max-w-md h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col my-8">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-blue-600 text-white rounded-t-lg">
           <div className="flex items-center space-x-2">
