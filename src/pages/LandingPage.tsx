@@ -5,6 +5,15 @@ import { ArrowRight, Calendar, TrendingUp, Shield } from 'lucide-react';
 const LandingPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-cream-50 to-secondary-50">
+      {/* Floating Bolt Logo */}
+      <div className="fixed top-6 right-6 z-50">
+        <img
+          src="/bolt.png"
+          alt="Built with Bolt"
+          className="w-12 h-12 object-contain opacity-80 hover:opacity-100 transition-opacity duration-200 drop-shadow-lg"
+        />
+      </div>
+
       {/* Navigation */}
       <nav className="flex justify-between items-center p-6 max-w-6xl mx-auto">
         <div className="flex items-center space-x-3">
@@ -80,12 +89,6 @@ const LandingPage: React.FC = () => {
       {/* Footer */}
       <footer className="text-center py-8 px-4 border-t border-neutral-200 bg-white/50 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto">
-          {/* Built with Bolt Badge */}
-          <div className="flex justify-center mb-4">
-            <img src="public/bolt.png" />
-
-          </div>
-          
           <p className="text-neutral-600 text-sm">
             © 2025 FlareTracker. Advanced skin health analytics.
           </p>
