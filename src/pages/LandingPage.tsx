@@ -82,27 +82,8 @@ const LandingPage: React.FC = () => {
         <div className="max-w-6xl mx-auto">
           {/* Built with Bolt Badge */}
           <div className="flex justify-center mb-4">
-            <a
-              href="https://bolt.new"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-            >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-white"
-              >
-                <path
-                  d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
-                  fill="currentColor"
-                />
-              </svg>
-              <span className="text-sm font-medium">Built with Bolt</span>
-            </a>
+            <img src="public/bolt.png" />
+
           </div>
           
           <p className="text-neutral-600 text-sm">
